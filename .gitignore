@@ -1,7 +1,7 @@
-datasets/
+Datasets/
 wandb/
 Results/
-
+Counts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
