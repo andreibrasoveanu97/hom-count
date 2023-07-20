@@ -187,7 +187,6 @@ def main(passed_args = None):
                     
                 # We don't count a try if it fails
                 c -= 1
-
         print("Finished search")
         # Select best parameters
         best_params, best_result_val = None, None
@@ -202,8 +201,7 @@ def main(passed_args = None):
             for param_file in glob.glob(os.path.join(hyperparams_path, "*.json")):
                 with open(param_file) as file:
                     dict = yaml.safe_load(file)
-                    
-                    # If we have not run any models yet we need to load it 
+                    # If we have not run any models yet we need to load it
                     if mode is None:
                         mode = dict["mode"]
 
@@ -216,7 +214,6 @@ def main(passed_args = None):
                             best_result_val = dict["val"]
                         else:
                             best_result_val = dict["val"]
-
                     if args.params_exp != "":
                         best_params["--graph_feat"] = args.graph_feat
 

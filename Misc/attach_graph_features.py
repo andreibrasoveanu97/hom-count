@@ -39,7 +39,6 @@ class AttachGraphFeat(BaseTransform):
 
         for i, g in enumerate(graph_features):
             g['idx'] = i
-
         if not self.misaligned:
             graph_features.sort(key = lambda f: f['idx'])
         else:

@@ -1,11 +1,8 @@
 import networkx as nx
-import torch
-from torch_geometric.datasets import ZINC, GNNBenchmarkDataset
-from torch_geometric.transforms import ToUndirected, Compose, OneHotDegree
+from torch_geometric.datasets import ZINC
+from torch_geometric.transforms import Compose, OneHotDegree
 from torch_geometric import utils
-from torch_geometric.loader import DataLoader
 from ogb.nodeproppred import PygNodePropPredDataset
-from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
 import argparse
@@ -48,7 +45,7 @@ def main():
     counts_dict["data"] = []
 
     splits = ["train", "valid", "test"]
-
+    idx = 0
     for split, dataset in zip(splits, datasets):
         for i, graph in enumerate(dataset):
             g = utils.to_networkx(graph)
@@ -58,10 +55,12 @@ def main():
             second_eigen = nx.laplacian_spectrum(g.to_undirected())[1]
 
             counts_dict["data"].append({"vertices": graph.num_nodes,
-                                        "edges": graph.num_edges,
+                                        "edges": graph.num_edges / 2,
                                         "split": split,
                                         "idx_in_split": i,
+                                        "idx": idx,
                                         "counts": [wiener_idx, hosoya_idx, first_eigen, second_eigen]})
+            idx += 1
 
     with open('./Counts/GlobalFeatures/{}_full_global.json'.format(args.dataset.upper()), 'w') as fp:
         json.dump(counts_dict, fp)
