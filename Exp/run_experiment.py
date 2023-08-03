@@ -128,7 +128,7 @@ def main(passed_args = None):
             for param_file in glob.glob(os.path.join(hyperparams_path, "*.json")):
                     with open(param_file) as file:
                         stored_params.append(yaml.safe_load(file))
-                        
+
             # Check if we have tested those params before
             # This is bad code, FIX THIS
             while param is None or (param in prev_params) or already_checked_params:
@@ -163,17 +163,17 @@ def main(passed_args = None):
                 # Don't search for params if there is only one candidate
                 if len(grid) == 1 or args.candidates == 1:
                     break
-                
+
                 result_dict = run(param_dict)
                 output_path = os.path.join(hyperparams_path, f"params_{len(glob.glob(os.path.join(hyperparams_path, '*')))}.json")
-                storage_dict = {"params": param_dict}     
+                storage_dict = {"params": param_dict}
                 storage_dict.update(copy.deepcopy(result_dict))
-                    
+
                 if mode is None:
                     mode = result_dict["mode"]
                 with open(output_path, "w") as file:
                     json.dump(storage_dict, file, indent=4)
-                
+
                 print(output_path)
 
                 if len(prev_params) >= len(grid):
@@ -184,7 +184,7 @@ def main(passed_args = None):
                 output_path = os.path.join(errors_path, f"params_{len(glob.glob(os.path.join(errors_path, '*')))}.json")
                 with open(output_path, "w") as file:
                     json.dump(error_dict, file, indent=4)
-                    
+
                 # We don't count a try if it fails
                 c -= 1
         print("Finished search")
@@ -195,7 +195,7 @@ def main(passed_args = None):
         if len(grid) == 1 or args.candidates == 1:
             best_params = param_dict
             print(f"Only one parameter pair / candidate (not seraching for params)")
-            
+
         # Otw load them
         else:
             for param_file in glob.glob(os.path.join(hyperparams_path, "*.json")):

@@ -1,5 +1,5 @@
 declare -a dataset=("ZINC")
-declare -a counts_cur_path=("ZINC_full_global.json")
+declare -a counts_cur_path=("ZINC_full_global_6.json")
 
 # ZINC
 for i in "${!dataset[@]}"

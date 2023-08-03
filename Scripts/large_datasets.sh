@@ -8,7 +8,7 @@ do
     echo "${dataset[i]}"
 
     # GIN with features
-    python Exp/run_experiment.py -grid "Configs/Eval/gin_with_features.yaml" -dataset "${dataset[i]}" --candidates 50  --repeats 1 --graph_feat "Counts/RepeatedCounts/${counts_cur_path[i]}"    
+    python Exp/run_experiment.py -grid "Configs/Eval/gin_with_features.yaml" -dataset "${dataset[i]}" --candidates 50  --repeats 1 --graph_feat "Counts/RepeatedCounts/${counts_cur_path[i]}"
     python Exp/run_experiment.py -grid "Configs/Eval/gin_with_features.yaml" -dataset "${dataset[i]}" --candidates 50  --repeats 10
     python Exp/run_multi_count_experiment.py -grid "Configs/Eval/gin_with_features.yaml" -dataset "${dataset[i]}" --repeats 2 --nr_diff_counts 9
     
