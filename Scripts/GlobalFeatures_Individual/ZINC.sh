@@ -1,4 +1,4 @@
-declare -a feature=("WIENER" "HOSOYA" "SECOND_EIGEN" "CIRCUIT_RANK" "SPECTRAL_RADIUS")
+declare -a feature=("WIENER" "HOSOYA" "SECOND_EIGEN" "CIRCUIT_RANK" "SPECTRAL_RADIUS" "DUMMY")
 
 # ZINC
 for i in "${!feature[@]}"
