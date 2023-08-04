@@ -63,7 +63,7 @@ def main():
                                             "split": split,
                                             "idx_in_split": i,
                                             "idx": idx,
-                                            "counts": [compute_feature(feature=args.feature, graph=g)]})
+                                            "counts": [float(compute_feature(feature=args.feature, graph=g))]})
                 idx += 1
     elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-ppa", "ogbg-code2", "ogbg-molpcba", "ogbg-moltox21", "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv", "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"]:
         for split, dataset in zip(splits, datasets):
@@ -75,7 +75,7 @@ def main():
                                             "split": split,
                                             "idx_in_split": i,
                                             "idx": int(split_idx[split][i]),
-                                            "counts": [compute_feature(feature=args.feature, graph=g)]})
+                                            "counts": [float(compute_feature(feature=args.feature, graph=g))]})
 
         counts_dict["data"] = sorted(counts_dict["data"], key=lambda x: x["idx"])
 
@@ -120,6 +120,8 @@ def compute_feature(feature, graph):
             return eigenvalues_laplacian(graph)[1]
         case "spectral_radius":
             return spectral_radius(graph)
+        case "dummy":
+            return 1
 
 if __name__ == "__main__":
     main()
