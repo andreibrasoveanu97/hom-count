@@ -10,6 +10,7 @@ from Misc.pad_node_attr import PadNodeAttr
 from Misc.drop_features import DropFeatures
 import argparse
 import json
+import grinpy as gp
 
 def get_transform(args, split=None):
     transforms = []
@@ -85,7 +86,7 @@ def main():
 
 # sum of the lengths of the shortest paths between all pairs of vertices
 def wiener_index(graph):
-    return nx.wiener_index(graph)
+    return -1 if nx.wiener_index(graph) == float("inf") else nx.wiener_index(graph)
 
 def hosoya_index(graph):
     return len(nx.max_weight_matching(graph.to_undirected(), maxcardinality = True))
@@ -108,6 +109,12 @@ def circuit_rank(graph):
 def spectral_radius(graph):
     return max(nx.laplacian_spectrum(graph.to_undirected()))
 
+def diameter(graph):
+    return nx.diameter(graph)
+
+def independence_no(graph):
+    return int(gp.independence_number(graph))
+
 def compute_feature(feature, graph):
     match feature:
         case "wiener":
@@ -120,6 +127,14 @@ def compute_feature(feature, graph):
             return eigenvalues_laplacian(graph)[1]
         case "spectral_radius":
             return spectral_radius(graph)
+        case "zagreb_m1":
+            return zagreb_index1(graph)
+        case "zagreb_m2":
+            return zagreb_index2(graph)
+        case "diameter":
+            return diameter(graph)
+        case "independence":
+            return independence_no(graph)
         case "dummy":
             return 1
 

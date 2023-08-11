@@ -2,7 +2,8 @@ Datasets/
 wandb/
 Results/
 datasets/
-
+ResultsOld/
+Counts/GlobalFeatures
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

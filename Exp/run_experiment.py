@@ -16,8 +16,7 @@ import numpy as np
 
 from Exp.run_model import run 
 from Misc.config import RESULTS_PATH
-
-keys_to_avg = ["runtime_hours", "parameters", "val", "test", "val0", "test0", "graph_feat"] 
+keys_to_avg = ["runtime_hours", "parameters", "val", "test", "val0", "test0", "graph_feat"]
 
 def get_directory(args):
     return os.path.join(RESULTS_PATH, f"{args.dataset}_{os.path.split(args.grid_file)[-1]}" + (f"_{os.path.split(args.graph_feat)[-1]}" if args.graph_feat != "" else "")) 

@@ -1,6 +1,6 @@
 model:  ["GIN"]
 batch_size: [128]
-emb_dim: [300]
+emb_dim: [64]
 drop_out: [0]
 num_layers: [5]
 num_mlp_layers: [2]
@@ -9,10 +9,11 @@ lr: [0.001]
 lr2: [0.0005]
 
 freeze_gnn: [0]
-epochs: [500]
+epochs: [1000]
 drop_feat: [0]
 
 lr_scheduler: ["ReduceLROnPlateau"]
 lr_scheduler_decay_rate: [0.5]
 lr_schedule_patience: [20]
 min_lr: [1e-5]
+
