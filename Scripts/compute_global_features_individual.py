@@ -4,13 +4,21 @@ from torch_geometric.transforms import Compose, OneHotDegree
 from torch_geometric import utils
 from ogb.nodeproppred import PygNodePropPredDataset
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
-
+import numpy as np
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
 from Misc.drop_features import DropFeatures
 import argparse
 import json
 import grinpy as gp
+
+def to_sagegraph(graph):
+    G = Graph()
+    from_networkx_graph(G, graph.to_undirected())
+    return G
+
+def get_hosoya(graph):
+    return sum(map(abs, matching_polynomial(graph).coefficients()))
 
 def get_transform(args, split=None):
     transforms = []
@@ -115,6 +123,9 @@ def diameter(graph):
 def independence_no(graph):
     return int(gp.independence_number(graph))
 
+def dummy(graph):
+    return np.random.random()
+
 def compute_feature(feature, graph):
     match feature:
         case "wiener":
@@ -136,7 +147,8 @@ def compute_feature(feature, graph):
         case "independence":
             return independence_no(graph)
         case "dummy":
-            return 1
-
+            return dummy(graph)
+        case "zagreb_m22":
+            return zagreb_index2(graph)
 if __name__ == "__main__":
     main()

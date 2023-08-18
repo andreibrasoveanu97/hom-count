@@ -163,10 +163,10 @@ def main(args):
         loss_train, loss_val, loss_test = train_results['total_loss'][best_val_epoch], val_results['total_loss'][best_val_epoch], test_result['total_loss'][best_val_epoch]
         result_val, result_test = val_results[eval_name][best_val_epoch], test_result[eval_name][best_val_epoch]
 
-        # wandb.log({
-        #     f"Final/Val(graph_feat)/{eval_name}": result_val,
-        #     f"Final/Test(graph_feat)/{eval_name}": result_test,
-        #     f"graph_features": graph_feat})
+        wandb.log({
+            f"Final/Val(graph_feat)/{eval_name}": result_val,
+            f"Final/Test(graph_feat)/{eval_name}": result_test,
+            f"graph_features": graph_feat})
 
 
         print("\n\nFINAL RESULT")
@@ -203,7 +203,8 @@ def main(args):
     val_metrics = list(map(lambda r: r["final_val_result"], results))
     test_metrics = list(map(lambda r: r["final_test_result"], results))
     graph_features = list(map(lambda r: r["graph_features"], results))
-    
+
+
     # Do not use the 0 graph_feat count
     if args.graph_feat != "":
         best_val_idx = 1 + (np.argmin(val_metrics[1:]) if mode == "min" else np.argmax(val_metrics[1:]))

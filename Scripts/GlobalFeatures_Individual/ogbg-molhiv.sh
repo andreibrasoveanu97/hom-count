@@ -1,4 +1,4 @@
-declare -a feature=("HOSOYA" "SECOND_EIGEN" "CIRCUIT_RANK" "SPECTRAL_RADIUS" "DUMMY")
+declare -a feature=("WIENER" "HOSOYA" "INDEPENDENCE" "SECOND_EIGEN" "CIRCUIT_RANK" "SPECTRAL_RADIUS" "ZAGREB_M1" "ZAGREB_M2")
 
 # ogbg-molhiv
 for i in "${!feature[@]}"
