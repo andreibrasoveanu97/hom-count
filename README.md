@@ -1,12 +1,12 @@
-# HomCountGNNs
-This repository contains the code of the GNN part of the paper **[Expectation-Complete Graph Representations with Homomorphisms]()** (ICML, 2023).
+# GlobalFeaturesGNNs
+This repository contains the code of the GNN part of the paper **[Extending Graph Neural Networks with Global Features](https://openreview.net/forum?id=aisVQy6R2k)** (LOG, 2023).
 
 ## Setup
 
 1. Clone repository
 ```
-git clone https://github.com/ocatias/HomCountGNNs/
-cd HomCountGNNs
+git clone https://github.com/andreibrasoveanu97/hom-count/
+cd hom-count
 ```
 
 2. Create and activate conda environment (this assume miniconda is installed)
@@ -34,13 +34,14 @@ pip install -r requirements.txt
 ## Recreating experiments
 Run experimentes with the following scripts. Results will be in the Results directory.
 
-**Main experiments.** Homomorphism counts against no homomorphism counts:
+**Main experiments.** Global features against no feature attached:
 ```
-bash Scripts/large_datasets.sh
-bash Scripts/small_datasets.sh
+bash Scripts/GlobalFeatures_Individual/ZINC.sh
+bash Scripts/GlobalFeatures_Individual/ogbg-molhiv.sh
 ```
 
-**Ablation.** Impact of misaligned homomorphism counts:
+**Ablation.** Impact of random noise in global features:
 ```
-bash Scripts/misaligned_feats.sh
+python Exp/run_experiment.py -grid "Configs/Eval_ZINC/gin_with_features_individual.yaml" -dataset "ZINC" --candidates 1  --repeats 10 --graph_feat "Counts/GlobalFeatures/ZINC_DUMMY_global.json"
+python Exp/run_experiment.py -grid "Configs/Eval/gin_with_features_individual.yaml" -dataset "ogbg-molhiv" --candidates 1  --repeats 10 --graph_feat "Counts/GlobalFeatures/OGBG-MOLHIV_DUMMY_global.json"
 ```
