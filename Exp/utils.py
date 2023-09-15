@@ -3,7 +3,7 @@ import csv
 
 import torch
 from torch_geometric.loader import DataLoader
-from torch_geometric.datasets import ZINC, GNNBenchmarkDataset, GNNBenchmarkDataset
+from torch_geometric.datasets import ZINC, GNNBenchmarkDataset, TUDataset
 import torch.optim as optim
 from torch_geometric.utils import to_undirected
 from torch_geometric.transforms import ToUndirected, Compose, OneHotDegree
@@ -11,6 +11,7 @@ from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from ogb.graphproppred.mol_encoder import AtomEncoder
 from ogb.utils.features import get_atom_feature_dims
 
+from Models.gin import GIN
 from Models.gnn import GNN
 # from Models.model import GNN
 from Models.encoder import NodeEncoder, EdgeEncoder, ZincAtomEncoder, EgoEncoder
@@ -19,6 +20,11 @@ from Misc.attach_graph_features import AttachGraphFeat
 from Misc.drop_features import DropFeatures
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
+#from SPE.clique_encoding import CellularCliqueEncoding
+#from SPE.ring_encoding import CellularRingEncoding
+
+implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109"]
+
 
 def get_transform(args, split = None):
     transforms = []
@@ -71,11 +77,33 @@ def load_dataset(args, config):
         dataset = PlanarSATPairsDataset(name=args.dataset, root=dir, pre_transform=transform)
         split_dict = dataset.separate_data(args.seed, args.split)
         datasets = [split_dict["train"], split_dict["valid"], split_dict["test"]]
+    elif args.dataset.lower() in implemented_TU_datasets:
+        encoder = None
+        if args.use_cliques:
+            encoder = CellularCliqueEncoding(args.max_struct_size, aggr_edge_atr=args.use_aggr_edge_atr,
+                                             aggr_vertex_feat=args.use_aggr_vertex_feat,
+                                             explicit_pattern_enc=args.use_explicit_pattern_enc,
+                                             edge_attr_in_vertices=args.use_edge_attr_in_vertices)
+        elif args.use_rings:
+            encoder = CellularRingEncoding(args.max_struct_size, aggr_edge_atr=args.use_aggr_edge_atr,
+                                           aggr_vertex_feat=args.use_aggr_vertex_feat,
+                                           explicit_pattern_enc=args.use_explicit_pattern_enc,
+                                           edge_attr_in_vertices=args.use_edge_attr_in_vertices)
+
+        if encoder is None:
+            dir = os.path.join(config.DATA_PATH, args.dataset)
+        else:
+            dir = os.path.join(config.DATA_PATH, args.dataset + "_" + repr(encoder))
+
+        dataset = TUDataset(root=dir, name=args.dataset, pre_transform=encoder,
+                                                      use_node_attr=True, use_edge_attr=True)
+        dataset.shuffle()
+        datasets = [dataset[:int(len(dataset) * 0.8)],
+                    dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)],
+                    dataset[int(len(dataset) * 0.9):]]
     else:
         raise NotImplementedError("Unknown dataset")
         
-    
-
     
 
     train_loader = DataLoader(datasets[0], batch_size=args.batch_size, shuffle=True)
@@ -92,7 +120,7 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
     if args.dataset.lower() == "zinc"and not args.do_drop_feat:
         node_feature_dims.append(21)
         node_encoder = NodeEncoder(emb_dim=args.emb_dim, feature_dims=node_feature_dims)
-        edge_encoder =  EdgeEncoder(emb_dim=args.emb_dim, feature_dims=[4])
+        edge_encoder = EdgeEncoder(emb_dim=args.emb_dim, feature_dims=[4])
     elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-molpcba", "ogbg-moltox21", "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv", "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"] and not args.do_drop_feat:
 
         node_feature_dims += get_atom_feature_dims()
@@ -100,15 +128,23 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=node_feature_dims), EdgeEncoder(args.emb_dim)
     else:
         node_encoder, edge_encoder = lambda x: x, lambda x: x
-            
-    if model in ["gin", "gcn", "gat"]:  
+
+    max_struct_size = args.max_struct_size
+    if max_struct_size > 0 and not args.cliques:
+        max_struct_size = 2
+
+    if model in ["gin", "gcn", "gat"]:
         return GNN(num_classes, num_tasks, args.num_layers, args.emb_dim, 
                 gnn_type = model, virtual_node = args.use_virtual_node, drop_ratio = args.drop_out, JK = "last", 
                 graph_pooling = args.pooling, edge_encoder=edge_encoder, node_encoder=node_encoder, 
                 use_node_encoder = args.use_node_encoder, num_mlp_layers = args.num_mlp_layers)
-    elif args.model.lower() == "mlp":
+    elif model == "mlp":
             return MLP(num_features=num_vertex_features, num_layers=args.num_layers, hidden=args.emb_dim, 
                     num_classes=num_classes, num_tasks=num_tasks, dropout_rate=args.drop_out, graph_pooling=args.pooling)
+    elif model == "gin_tu":
+        return GIN(num_features=num_vertex_features, num_layers=args.num_layers, hidden=args.emb_dim, num_classes=num_classes,
+                   dropout_rate=args.drop_out, max_cell_dim=max_struct_size, dimensional_pooling=args.use_explicit_pattern_enc,
+                   readout=args.pooling)
     else: # Probably don't need other models
         pass
 
@@ -164,6 +200,9 @@ def get_loss(args):
         loss = torch.nn.BCEWithLogitsLoss()
         metric = "ap (ogb)" 
         metric_method = get_evaluator(args.dataset)
+    elif args.dataset.lower() in ["proteins"]:
+        loss = torch.nn.BCEWithLogitsLoss()
+        metric = "accuracy"
     else:
         raise NotImplementedError("No loss for this dataset")
     

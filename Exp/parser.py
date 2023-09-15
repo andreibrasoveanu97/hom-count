@@ -98,6 +98,20 @@ def parse_args(passed_args=None):
                         help="Drop all features from the graph")
     parser.add_argument('--misalign', type=int, default=0,
                         help="Attaches graph features in the wrong way if set to 1, also disables the 0 count features as a possible result (Default: 0)")
+    parser.add_argument('--cliques', type=int, default=0,
+                        help='Attach cells to all cliques of size up to k.')
+    parser.add_argument('--rings', type=int, default=0,
+                        help='Attach cells to all rings of size up to k.')
+    parser.add_argument('--aggr_edge_atr', type=int, default=0,
+                        help='')
+    parser.add_argument('--aggr_vertex_feat', type=int, default=0,
+                        help='')
+    parser.add_argument('--explicit_pattern_enc', type=int, default=0,
+                        help='')
+    parser.add_argument('--edge_attr_in_vertices', type=int, default=0,
+                        help='')
+    parser.add_argument('--max_struct_size', type=int, default=0,
+                        help='Maximum size of the structure to attach cells to. If it is non-zero then cycle encoding will be used, except if --cliques 1 then clique encoding will be used')
 
     # Load partial args instead of command line args (if they are given)
     if passed_args is not None:
@@ -117,6 +131,16 @@ def parse_args(passed_args=None):
     args.__dict__["do_freeze_gnn"] = args.freeze_gnn == 1
     args.__dict__["do_drop_feat"] = args.drop_feat == 1
     args.__dict__["use_misaligned"] = args.misalign == 1
+
+
+    args.__dict__["use_rings"] = args.rings == 1
+    args.__dict__["use_cliques"] = args.cliques == 1
+    assert not (args.__dict__["use_rings"] and args.__dict__["use_cliques"])
+
+    args.__dict__["use_aggr_edge_atr"] = args.aggr_edge_atr == 1
+    args.__dict__["use_aggr_vertex_feat"] = args.aggr_vertex_feat == 1
+    args.__dict__["use_explicit_pattern_enc"] = args.explicit_pattern_enc == 1
+    args.__dict__["use_edge_attr_in_vertices"] = args.edge_attr_in_vertices == 1
 
     # https://codereview.stackexchange.com/a/79015
     # If a config file is provided, write it's values into the arguments

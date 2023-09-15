@@ -115,7 +115,7 @@ def circuit_rank(graph):
     return (g.number_of_edges() - g.number_of_nodes() + nx.number_connected_components(g))
 
 def spectral_radius(graph):
-    return max(nx.laplacian_spectrum(graph.to_undirected()))
+    return max(map(abs, nx.adjacency_spectrum(graph)))
 
 def diameter(graph):
     return nx.diameter(graph)
@@ -124,7 +124,7 @@ def independence_no(graph):
     return int(gp.independence_number(graph))
 
 def dummy(graph):
-    return np.random.random()
+    return np.float64(1)
 
 def compute_feature(feature, graph):
     match feature:

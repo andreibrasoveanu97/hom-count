@@ -84,6 +84,8 @@ def main(passed_args = None):
     if args.params_exp != "":
         args.candidates = 0
 
+
+
     with open(args.grid_file, 'r') as file:
         grid_raw = yaml.safe_load(file)
     grid = ParameterGrid(grid_raw)
@@ -103,6 +105,8 @@ def main(passed_args = None):
 
             os.mkdir(final_eval_path)
             os.mkdir(errors_path)
+
+
 
     for split in range(args.folds):
         print(f"Grid contains {len(grid)} combinations")
