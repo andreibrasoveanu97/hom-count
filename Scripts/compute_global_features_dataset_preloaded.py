@@ -1,5 +1,7 @@
+import sys
+
 import networkx as nx
-from torch_geometric.datasets import ZINC, TUDataset, QM9
+from torch_geometric.datasets import TUDataset, QM9
 from torch_geometric.transforms import Compose, OneHotDegree
 from torch_geometric import utils
 from ogb.nodeproppred import PygNodePropPredDataset
@@ -11,15 +13,7 @@ from Misc.drop_features import DropFeatures
 import argparse
 import json
 import grinpy as gp
-implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109", "qm9"]
-
-def to_sagegraph(graph):
-    G = Graph()
-    from_networkx_graph(G, graph.to_undirected())
-    return G
-
-def get_hosoya(graph):
-    return sum(map(abs, matching_polynomial(graph).coefficients()))
+implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109"]
 
 def get_transform(args, split=None):
     transforms = []
@@ -38,34 +32,12 @@ def get_transform(args, split=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("dataset", help = "Choose the dataset for which the global features are computed")
-    parser.add_argument("feature", help = "Choose which global feature you want to compute: [wiener, hosoya, circuit_rank, second_eigen, spectral_radius]")
+    parser.add_argument("dataset", help="Choose the dataset for which the global features are computed")
+    parser.add_argument("feature",
+                        help="Choose which global feature you want to compute: [wiener, hosoya, circuit_rank, second_eigen, spectral_radius]")
     args = parser.parse_args()
 
     transform = get_transform(args)
-
-    if (args.dataset.lower() == "zinc"):
-        datasets = [ZINC(root="./datasets/", subset=True, split=split, pre_transform=transform) for split in
-                    ["train", "val", "test"]]
-    elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-ppa", "ogbg-code2", "ogbg-molpcba", "ogbg-moltox21", "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv", "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"]:
-        dataset = PygGraphPropPredDataset(root="./datasets/", name=args.dataset.lower(), pre_transform=transform)
-        split_idx = dataset.get_idx_split()
-        datasets = [dataset[split_idx["train"]], dataset[split_idx["valid"]], dataset[split_idx["test"]]]
-    elif args.dataset.lower() in implemented_TU_datasets:
-        dataset = TUDataset(root='./datasets/', name=args.dataset,
-                            use_node_attr=True, use_edge_attr=False)
-        dataset.shuffle()
-        datasets = [dataset[:int(len(dataset) * 0.8)],
-                    dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)],
-                    dataset[int(len(dataset) * 0.9):]]
-    elif args.dataset.lower() == "qm9":
-        dataset = QM9(root='./datasets/')
-        dataset.shuffle()
-        datasets = [dataset[:int(len(dataset) * 0.8)],
-                    dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)],
-                    dataset[int(len(dataset) * 0.9):]]
-    else:
-        raise NotImplementedError("Unknown dataset")
 
     counts_dict = {}
 
@@ -74,21 +46,26 @@ def main():
 
     counts_dict["data"] = []
 
-    splits = ["train", "valid", "test"]
-    if (args.dataset.lower() == "zinc"):
-        idx = 0
-        for split, dataset in zip(splits, datasets):
-            for i, graph in enumerate(dataset):
-                g = utils.to_networkx(graph)
+    if args.dataset.lower() in implemented_TU_datasets:
+        dataset = TUDataset(root="./datasets/", name=args.dataset, pre_transform=transform,
+                            use_node_attr=True, use_edge_attr=False)
+        dataset.shuffle()
+        datasets = [dataset[:int(len(dataset) * 0.8)],
+                    dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)],
+                    dataset[int(len(dataset) * 0.9):]]
+    elif args.dataset.lower() == "qm9":
+        dataset = QM9(root="./datasets/")
+        dataset.shuffle()
+        datasets = [dataset[:int(len(dataset) * 0.8)],
+                    dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)],
+                    dataset[int(len(dataset) * 0.9):]]
+    else:
+        raise NotImplementedError("Unknown dataset")
 
-                counts_dict["data"].append({"vertices": graph.num_nodes,
-                                            "edges": graph.num_edges / 2,
-                                            "split": split,
-                                            "idx_in_split": i,
-                                            "idx": idx,
-                                            "counts": [float(compute_feature(feature=args.feature, graph=g))]})
-                idx += 1
-    elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-ppa", "ogbg-code2", "ogbg-molpcba", "ogbg-moltox21", "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv", "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"]:
+    splits = ["train", "valid", "test"]
+
+    if (args.dataset.lower() in implemented_TU_datasets) or (args.dataset.lower() == "qm9"):
+        idx = 0
         for split, dataset in zip(splits, datasets):
             for i, graph in enumerate(dataset):
                 g = utils.to_networkx(graph)
@@ -97,11 +74,14 @@ def main():
                                             "edges": graph.num_edges,
                                             "split": split,
                                             "idx_in_split": i,
-                                            "idx": int(split_idx[split][i]),
+                                            "idx": idx,
                                             "counts": [float(compute_feature(feature=args.feature, graph=g))]})
+                idx += 1
+
 
         counts_dict["data"] = sorted(counts_dict["data"], key=lambda x: x["idx"])
-
+    else:
+        raise NotImplementedError("Preloaded global features are not implemented for this dataset")
 
     with open('./Counts/GlobalFeatures/{}_{}_global.json'.format(args.dataset.upper(), args.feature.upper()), 'w') as fp:
         json.dump(counts_dict, fp)

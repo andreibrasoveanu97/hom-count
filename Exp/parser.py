@@ -79,6 +79,9 @@ def parse_args(passed_args=None):
                         help='number of final mlp layers (default: 5)')
     parser.add_argument('--virtual_node', type=int, default=0,
                         help='virtual_node')
+    parser.add_argument('--dummy', dest='dummy', type=bool,
+                        help="Whether this experiment is done with dummy global features or not (for ablation study)",
+                        default=False)
 
     parser.add_argument('--pooling', type=str, default="mean",
                         help='')

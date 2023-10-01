@@ -1,6 +1,6 @@
 model:  ["GIN"]
-batch_size: [128]
-emb_dim: [32]
+batch_size: [128, 256]
+emb_dim: [64, 256]
 drop_out: [0, 0.1]
 num_layers: [1, 2, 3, 4, 5]
 num_mlp_layers: [2]

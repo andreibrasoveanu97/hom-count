@@ -57,7 +57,7 @@ class GINConv(MessagePassing):
 
     def message(self, x_j, edge_attr):
 
-        # print(f"{x_j.shape}, {edge_attr.shape}")
+        #print(f"{x_j.shape}, {edge_attr.shape}")
         return F.relu(x_j + edge_attr)
 
     def update(self, aggr_out):

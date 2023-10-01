@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.nn import Linear, Sequential, BatchNorm1d as BN
 from torch_geometric.nn import GINConv, JumpingKnowledge
 import torch.nn as nn
-from torch.nn import Linear, ReLU, Sequential
+from torch.nn import Linear, ReLU, Sequential, ModuleList, Parameter
 from torch_geometric.nn import GINConv, JumpingKnowledge, global_mean_pool
 
 from Models.utils import get_nonlinearity, get_pooling_fn
@@ -11,12 +11,14 @@ from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
 
 class GIN(torch.nn.Module):
     def __init__(self, num_features, num_layers, hidden, num_classes, max_cell_dim = 0,mode='cat', readout='sum', num_tasks = 1,
-                 dropout_rate=0.5, nonlinearity='relu', dimensional_pooling = True):
+                 dropout_rate=0.5, nonlinearity='relu', dimensional_pooling = True, num_mlp_layers = 1):
         super(GIN, self).__init__()
         self.max_cell_dim = max_cell_dim
         self.pooling_fn = get_pooling_fn(readout)
         self.dropout_rate = dropout_rate
         self.num_tasks = num_tasks
+        self.emb_dim = hidden
+        self.num_mlp_layers = num_mlp_layers
         self.num_classes = num_classes
         self.nonlinearity = nonlinearity
         conv_nonlinearity = get_nonlinearity(nonlinearity, return_module=True)
@@ -96,5 +98,35 @@ class GIN(torch.nn.Module):
         x = self.lin2(x)
         return x
 
+    def set_mlp(self, graph_features=0, copy_emb_weights=False):
+        self.graph_features = graph_features
+        hidden_size = self.emb_dim // 2
+        new_mlp = ModuleList([])
+        new_mlp.requires_grad = False
+
+        for i in range(self.num_mlp_layers):
+            in_size = hidden_size if i > 0 else self.emb_dim + graph_features
+            out_size = hidden_size if i < self.num_mlp_layers - 1 else self.num_classes * self.num_tasks
+
+            new_linear_layer = Linear(in_size, out_size)
+
+            if copy_emb_weights:
+                copy_len = self.emb_dim if i == 0 else hidden_size
+
+                new_linear_layer.weight.requires_grad = False
+                new_linear_layer.weight[:, 0:copy_len] = self.mlp[2 * i].weight[:, 0:copy_len].detach().clone()
+                new_linear_layer.weight.requires_grad = True
+
+                new_linear_layer.bias.requires_grad = False
+                new_linear_layer.bias = Parameter(self.mlp[2 * i].bias.detach().clone())
+                new_linear_layer.bias.requires_grad = True
+
+            new_mlp.append(new_linear_layer)
+
+            if self.num_mlp_layers > 0 and i < self.num_mlp_layers - 1:
+                new_mlp.append(ReLU())
+
+        new_mlp.requires_grad = True
+        self.mlp = new_mlp
     def __repr__(self):
         return self.__class__.__name__
