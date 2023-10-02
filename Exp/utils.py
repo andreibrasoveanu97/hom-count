@@ -5,24 +5,19 @@ import torch
 from torch_geometric.loader import DataLoader
 from torch_geometric.datasets import ZINC, GNNBenchmarkDataset, TUDataset, QM9
 import torch.optim as optim
-from torch_geometric.utils import to_undirected
 from torch_geometric.transforms import ToUndirected, Compose, OneHotDegree
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
-from ogb.graphproppred.mol_encoder import AtomEncoder
 from ogb.utils.features import get_atom_feature_dims
 from Models.gin import GIN
 from Models.gnn import GNN
-# from Models.model import GNN
-from Models.encoder import NodeEncoder, EdgeEncoder, ZincAtomEncoder, EgoEncoder
+from Models.encoder import NodeEncoder, EdgeEncoder
 from Models.mlp import MLP
 from Misc.attach_graph_features import AttachGraphFeat
 from Misc.drop_features import DropFeatures
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
-#from SPE.clique_encoding import CellularCliqueEncoding
-#from SPE.ring_encoding import CellularRingEncoding
-from torch_geometric.data import Dataset, Data
-from sklearn.preprocessing import StandardScaler
+from datasets.PeptidesStructural import PeptidesStructuralDataset
+from torch_geometric.data import Dataset
 
 
 implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109"]
@@ -51,7 +46,12 @@ def get_transform(args, split = None):
     if args.graph_feat != "":
         use_zinc = args.dataset.lower() == "zinc"
         use_shuffled = args.dataset.lower() in shuffled_datasets
-        transforms.append(AttachGraphFeat(args.graph_feat, process_splits_separately = use_zinc, half_nr_edges = use_zinc, misaligned = args.use_misaligned, shuffle=use_shuffled, dummy=args.dummy))
+        transforms.append(AttachGraphFeat(args.graph_feat,
+                                          process_splits_separately = use_zinc,
+                                          half_nr_edges = use_zinc,
+                                          misaligned = args.use_misaligned,
+                                          shuffle=use_shuffled,
+                                          dummy=args.dummy))
         
     if args.do_drop_feat:
         transforms.append(DropFeatures(args.emb_dim))
@@ -110,7 +110,11 @@ def load_dataset(args, config):
         test_split = standardize_y(CustomSubset(dataset, indices_test()))
 
         datasets = [train_split, valid_split, test_split]
+    elif args.dataset.lower() == "peptides":
+        dataset = PeptidesStructuralDataset(root = dir, pre_transform=transform)
+        splits = dataset.get_idx_split()
 
+        datasets = [dataset[splits["train"]], dataset[splits["val"]], dataset[splits["test"]]]
     else:
         raise NotImplementedError("Unknown dataset")
 
@@ -140,6 +144,8 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=node_feature_dims), EdgeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2])
     elif args.dataset.lower() == "qm9":
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2, 2, 10, 1, 1, 1, 1, 5]), EdgeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2])
+    elif args.dataset.lower() == "peptides":
+        node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=[17, 3, 7, 7, 5, 1, 6, 2, 2]), EdgeEncoder(args.emb_dim, feature_dims=[4, 1, 2])
     else:
         node_encoder, edge_encoder = lambda x: x, lambda x: x
 
@@ -192,7 +198,7 @@ def get_optimizer_scheduler(model, args, finetune = False):
 
 def get_loss(args):
     metric_method = None
-    if args.dataset.lower() in ["zinc", "qm9"]:
+    if args.dataset.lower() in ["zinc", "qm9", "peptides"]:
         loss = torch.nn.L1Loss()
         metric = "mae"
     elif args.dataset.lower() in ["ogbg-molesol", "ogbg-molfreesolv", "ogbg-mollipo"]:

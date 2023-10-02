@@ -8,6 +8,7 @@ import numpy as np
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
 from Misc.drop_features import DropFeatures
+from datasets.PeptidesStructural import PeptidesStructuralDataset
 import argparse
 import json
 import grinpy as gp
@@ -64,6 +65,11 @@ def main():
         datasets = [dataset[:int(len(dataset) * 0.8)],
                     dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)],
                     dataset[int(len(dataset) * 0.9):]]
+    elif args.dataset.lower() == "peptides":
+        dataset = PeptidesStructuralDataset(root="./datasets/")
+        splits = dataset.get_idx_split()
+
+        datasets = [dataset[splits["train"]], dataset[splits["val"]], dataset[splits["test"]]]
     else:
         raise NotImplementedError("Unknown dataset")
 
@@ -101,7 +107,24 @@ def main():
                                             "counts": [float(compute_feature(feature=args.feature, graph=g))]})
 
         counts_dict["data"] = sorted(counts_dict["data"], key=lambda x: x["idx"])
+    elif args.dataset.lower() in ["peptides"]:
+        splits_dict = dataset.get_idx_split()
+        idx = 0
+        splits = ["train", "val", "test"]
+        for split, dataset in zip(splits, datasets):
+            for i, graph in enumerate(dataset):
+                g = utils.to_networkx(graph)
 
+                counts_dict["data"].append({"vertices": graph.num_nodes,
+                                            "edges": graph.num_edges,
+                                            "split": split,
+                                            "idx_in_split": i,
+                                            "idx": int(splits_dict[split][i]),
+                                            "counts": [float(compute_feature(feature=args.feature, graph=g))]})
+                idx += 1
+        counts_dict["data"] = sorted(counts_dict["data"], key=lambda x: x["idx"])
+    else:
+        NotImplementedError("Dataset not implemented")
 
     with open('./Counts/GlobalFeatures/{}_{}_global.json'.format(args.dataset.upper(), args.feature.upper()), 'w') as fp:
         json.dump(counts_dict, fp)

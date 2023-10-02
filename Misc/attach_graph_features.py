@@ -67,8 +67,10 @@ class AttachGraphFeat(BaseTransform):
 
     def __call__(self, data: Data):
         # Only perform a sanity check for not misaligned features
-
+        print(self.idx)
+        print(data)
         if not self.misaligned:
+
             assert self.graph_features[self.idx]['vertices'] == data.x.shape[0]
 
             if self.half_nr_edges:
