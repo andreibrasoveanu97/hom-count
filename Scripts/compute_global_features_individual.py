@@ -2,13 +2,11 @@ import networkx as nx
 from torch_geometric.datasets import ZINC, TUDataset, QM9
 from torch_geometric.transforms import Compose, OneHotDegree
 from torch_geometric import utils
-from ogb.nodeproppred import PygNodePropPredDataset
-from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
+from ogb.graphproppred import PygGraphPropPredDataset
 import numpy as np
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
-from Misc.drop_features import DropFeatures
-from datasets.PeptidesStructural import PeptidesStructuralDataset
+from PeptidesStructural import PeptidesStructuralDataset
 import argparse
 import json
 import grinpy as gp

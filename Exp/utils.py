@@ -16,10 +16,9 @@ from Misc.attach_graph_features import AttachGraphFeat
 from Misc.drop_features import DropFeatures
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
-from datasets.PeptidesStructural import PeptidesStructuralDataset
-from datasets.PeptidesFunctional import PeptidesFunctionalDataset
+from PeptidesStructural import PeptidesStructuralDataset
+from PeptidesFunctional import PeptidesFunctionalDataset
 from torch_geometric.data import Dataset
-import numpy as np
 
 implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109"]
 shuffled_datasets = ["mutag", "proteins", "nci1", "nci109", "qm9"]
