@@ -24,6 +24,7 @@ export PYTHONPATH=$PYTHONPATH:$PATH
 ```
 conda install pytorch==1.12.0 torchvision==0.13.0 torchaudio==0.12.0 -c pytorch
 conda install -c pyg pyg=2.2.0
+conda install openbabel fsspec rdkit -c conda-forge
 ```
 
 5. Install remaining dependencies
