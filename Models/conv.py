@@ -173,6 +173,8 @@ class GNN_node(torch.nn.Module):
             node_representation = 0
             for layer in range(self.num_layer + 1):
                 node_representation += h_list[layer]
+        elif self.JK == "concat":
+            node_representation = torch.cat(h_list, 1)
 
         return node_representation
 
