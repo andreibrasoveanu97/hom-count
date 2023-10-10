@@ -1,4 +1,4 @@
-model:  ["GIN"]
+model:  ["GCN"]
 batch_size: [128]
 emb_dim: [256]
 drop_out: [0]

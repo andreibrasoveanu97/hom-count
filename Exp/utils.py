@@ -17,8 +17,9 @@ from Misc.drop_features import DropFeatures
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
 from datasets.PeptidesStructural import PeptidesStructuralDataset
+from datasets.PeptidesFunctional import PeptidesFunctionalDataset
 from torch_geometric.data import Dataset
-
+import numpy as np
 
 implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109"]
 shuffled_datasets = ["mutag", "proteins", "nci1", "nci109", "qm9"]
@@ -92,7 +93,7 @@ def load_dataset(args, config):
         datasets = [split_dict["train"], split_dict["valid"], split_dict["test"]]
     elif args.dataset.lower() in implemented_TU_datasets:
         dataset = TUDataset(root=dir, name=args.dataset, pre_transform=transform,
-                                                      use_node_attr=True, use_edge_attr=False)
+                                                      use_node_attr=False, use_edge_attr=False)
         indices_train = lambda: [i for i, data in enumerate(dataset) if data.split == 'train']
         indices_test = lambda: [i for i, data in enumerate(dataset) if data.split == 'test']
         indices_valid = lambda: [i for i, data in enumerate(dataset) if data.split == 'valid']
@@ -112,6 +113,11 @@ def load_dataset(args, config):
         datasets = [train_split, valid_split, test_split]
     elif args.dataset.lower() == "peptides":
         dataset = PeptidesStructuralDataset(root = dir, pre_transform=transform)
+        splits = dataset.get_idx_split()
+
+        datasets = [dataset[splits["train"]], dataset[splits["val"]], dataset[splits["test"]]]
+    elif args.dataset.lower() == "peptides-functional":
+        dataset = PeptidesFunctionalDataset(root=dir, pre_transform=transform)
         splits = dataset.get_idx_split()
 
         datasets = [dataset[splits["train"]], dataset[splits["val"]], dataset[splits["test"]]]
@@ -144,8 +150,10 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=node_feature_dims), EdgeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2])
     elif args.dataset.lower() == "qm9":
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2, 2, 10, 1, 1, 1, 1, 5]), EdgeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2])
-    elif args.dataset.lower() == "peptides":
+    elif args.dataset.lower() in ["peptides", "peptides-functional"]:
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=[17, 3, 7, 7, 5, 1, 6, 2, 2]), EdgeEncoder(args.emb_dim, feature_dims=[4, 1, 2])
+    elif args.dataset.lower() in ["proteins"]:
+        node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=[2, 2, 2]), EdgeEncoder(args.emb_dim, feature_dims=[2])
     else:
         node_encoder, edge_encoder = lambda x: x, lambda x: x
 
@@ -223,6 +231,9 @@ def get_loss(args):
     elif args.dataset.lower() in ["proteins", "mutag"]:
         loss = torch.nn.BCEWithLogitsLoss()
         metric = "accuracy"
+    elif args.dataset.lower() in ["peptides-functional"]:
+        loss = torch.nn.BCEWithLogitsLoss()
+        metric = "ap"
     else:
         raise NotImplementedError("No loss for this dataset")
     

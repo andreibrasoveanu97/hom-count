@@ -76,7 +76,10 @@ def main():
     counts_dict = {}
 
     # only one feature per counts.json file
-    counts_dict["pattern_sizes"] = [1]
+    if args.feature != "all":
+        counts_dict["pattern_sizes"] = [1]
+    else:
+        counts_dict["pattern_sizes"] = [1, 2, 3, 4, 5, 6, 7, 8]
 
     counts_dict["data"] = []
 
@@ -115,12 +118,27 @@ def main():
             for i, graph in enumerate(dataset):
                 g = utils.to_networkx(graph)
 
-                counts_dict["data"].append({"vertices": graph.num_nodes,
+                if args.feature != "all":
+                    counts_dict["data"].append({"vertices": graph.num_nodes,
                                             "edges": graph.num_edges,
                                             "split": split,
                                             "idx_in_split": i,
                                             "idx": int(splits_dict[split][i]),
                                             "counts": [float(compute_feature(feature=args.feature, graph=g))]})
+                else:
+                    counts_dict["data"].append({"vertices": graph.num_nodes,
+                                                "edges": graph.num_edges,
+                                                "split": split,
+                                                "idx_in_split": i,
+                                                "idx": int(splits_dict[split][i]),
+                                                "counts": [float(wiener_index(g)),
+                                                           float(hosoya_index(g)),
+                                                           float(independence_no(g)),
+                                                           float(eigenvalues_laplacian(g)[1]),
+                                                           float(circuit_rank(g)),
+                                                           float(spectral_radius(g)),
+                                                           float(zagreb_index1(g)),
+                                                           float(zagreb_index2(g))]})
                 idx += 1
         counts_dict["data"] = sorted(counts_dict["data"], key=lambda x: x["idx"])
     else:

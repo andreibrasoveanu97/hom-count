@@ -16,6 +16,7 @@ class AttachGraphFeat(BaseTransform):
         self.path_graph_feat = path_graph_feat
         self.half_nr_edges = half_nr_edges
         self.dummy = dummy
+        self.shuffle = shuffle
         with open(path_graph_feat, 'r') as file:
             graph_features = json.load(file)
 
@@ -67,8 +68,7 @@ class AttachGraphFeat(BaseTransform):
 
     def __call__(self, data: Data):
         # Only perform a sanity check for not misaligned features
-        print(self.idx)
-        print(data)
+
         if not self.misaligned:
 
             assert self.graph_features[self.idx]['vertices'] == data.x.shape[0]
@@ -103,6 +103,8 @@ class AttachGraphFeat(BaseTransform):
 
         graph_features = torch.unsqueeze(graph_features, 0)
         data.graph_features = graph_features
+        if self.shuffle:
+            data.edge_attr = torch.unsqueeze(torch.tensor([1]), 0)
         data.split = splits
         self.idx += 1
         return data
