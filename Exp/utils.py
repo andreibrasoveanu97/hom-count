@@ -19,6 +19,7 @@ from Misc.pad_node_attr import PadNodeAttr
 from PeptidesStructural import PeptidesStructuralDataset
 from PeptidesFunctional import PeptidesFunctionalDataset
 from torch_geometric.data import Dataset
+from Misc.cell_encoding import CellularRingEncoding
 
 implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109"]
 shuffled_datasets = ["mutag", "proteins", "nci1", "nci109", "qm9"]
@@ -38,6 +39,10 @@ def get_transform(args, split = None):
     if args.dataset.lower() == "csl":
         transforms.append(OneHotDegree(5))
         
+    if args.graph_trafo == "CWN":
+        transforms.append(CellularRingEncoding(args.max_struct_size, aggr_edge_atr=True, aggr_vertex_feat=True,
+                explicit_pattern_enc=True, edge_attr_in_vertices=False))    
+        
     # Pad features if necessary (needs to be done after adding additional features from other transformation)
     if args.dataset.lower() == "csl":
         transforms.append(AddZeroEdgeAttr(args.emb_dim))
@@ -51,7 +56,8 @@ def get_transform(args, split = None):
                                           half_nr_edges = use_zinc,
                                           misaligned = args.use_misaligned,
                                           shuffle=use_shuffled,
-                                          dummy=args.dummy))
+                                          dummy=args.dummy,
+                                          check_vertices = args.graph_trafo != "CWN"))
         
     if args.do_drop_feat:
         transforms.append(DropFeatures(args.emb_dim))
@@ -131,6 +137,9 @@ def load_dataset(args, config):
 
 def get_model(args, num_classes, num_vertex_features, num_tasks):
     node_feature_dims = []
+
+    if args.graph_trafo == "CWN":
+        node_feature_dims = [2,2,2]
     
     model = args.model.lower()
 
@@ -139,7 +148,6 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
         node_encoder = NodeEncoder(emb_dim=args.emb_dim, feature_dims=node_feature_dims)
         edge_encoder = EdgeEncoder(emb_dim=args.emb_dim, feature_dims=[4])
     elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-molpcba", "ogbg-moltox21", "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv", "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"] and not args.do_drop_feat:
-
         node_feature_dims += get_atom_feature_dims()
         print("node_feature_dims: ", node_feature_dims)
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=node_feature_dims), EdgeEncoder(args.emb_dim)
@@ -162,9 +170,9 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
 
     if model in ["gin", "gcn", "gat"]:
         return GNN(num_classes, num_tasks, args.num_layers, args.emb_dim, 
-                gnn_type = model, virtual_node = args.use_virtual_node, drop_ratio = args.drop_out, JK = "last", 
+                gnn_type = model, virtual_node = args.use_virtual_node, drop_ratio = args.drop_out, JK = args.JK, 
                 graph_pooling = args.pooling, edge_encoder=edge_encoder, node_encoder=node_encoder, 
-                use_node_encoder = args.use_node_encoder, num_mlp_layers = args.num_mlp_layers)
+                use_node_encoder = args.use_node_encoder, num_mlp_layers = args.num_mlp_layers, dim_pooling = args.graph_trafo == "CWN")
     elif model == "mlp":
             return MLP(num_features=num_vertex_features, num_layers=args.num_layers, hidden=args.emb_dim, 
                     num_classes=num_classes, num_tasks=num_tasks, dropout_rate=args.drop_out, graph_pooling=args.pooling)

@@ -48,7 +48,14 @@ def parse_args(passed_args=None):
     parser.add_argument('--device', type=int, default=0,
                     help='which gpu to use if any (default: 0)')
     parser.add_argument('--model', type=str, default='GIN',
-                    help='model, possible choices: default')
+                    help='model, possible choices: (GIN, GCN)')
+    parser.add_argument('--JK', type=str, default='last',
+                    help='jumping knowledge, possible choices: (last, sum, concat)')
+    
+    parser.add_argument('--graph_trafo', type=str, default='None',
+                    help='model, possible choices: (None, CWN)')
+    parser.add_argument('--max_struct_size', type=int, default=8,
+                    help='Maximum size of the ring to attach cells to (requires CWN graph_trafo)')
                     
     # LR SCHEDULER
     parser.add_argument('--lr_scheduler', type=str, default='ReduceLROnPlateau',
@@ -113,8 +120,6 @@ def parse_args(passed_args=None):
                         help='')
     parser.add_argument('--edge_attr_in_vertices', type=int, default=0,
                         help='')
-    parser.add_argument('--max_struct_size', type=int, default=0,
-                        help='Maximum size of the structure to attach cells to. If it is non-zero then cycle encoding will be used, except if --cliques 1 then clique encoding will be used')
 
     # Load partial args instead of command line args (if they are given)
     if passed_args is not None:

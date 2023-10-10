@@ -12,11 +12,12 @@ class AttachGraphFeat(BaseTransform):
     """
 
     def __init__(self, path_graph_feat: str, process_splits_separately=False, half_nr_edges=False, misaligned=False,
-                 shuffle=False, dummy=False):
+                 shuffle=False, dummy=False, check_vertices=True):
         self.path_graph_feat = path_graph_feat
         self.half_nr_edges = half_nr_edges
         self.dummy = dummy
         self.shuffle = shuffle
+        self.check_vertices = check_vertices
         with open(path_graph_feat, 'r') as file:
             graph_features = json.load(file)
 
@@ -69,8 +70,7 @@ class AttachGraphFeat(BaseTransform):
     def __call__(self, data: Data):
         # Only perform a sanity check for not misaligned features
 
-        if not self.misaligned:
-
+        if not self.misaligned and self.check_vertices:
             assert self.graph_features[self.idx]['vertices'] == data.x.shape[0]
 
             if self.half_nr_edges:

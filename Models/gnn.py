@@ -13,7 +13,7 @@ class GNN(torch.nn.Module):
 
     def __init__(self, num_classes, num_tasks, num_layer = 5, emb_dim = 300, 
                     gnn_type = 'gin', virtual_node = True, residual = False, drop_ratio = 0.5, JK = "last", graph_pooling = "mean",
-                    node_encoder = lambda x: x, edge_encoder = lambda x: x, use_node_encoder = True, graph_features = 0, num_mlp_layers = 1):
+                    node_encoder = lambda x: x, edge_encoder = lambda x: x, use_node_encoder = True, graph_features = 0, num_mlp_layers = 1, dim_pooling = False):
         '''
             num_tasks (int): number of labels to be predicted
             virtual_node (bool): whether to add virtual node or not
@@ -34,7 +34,8 @@ class GNN(torch.nn.Module):
         self.use_node_encoder = use_node_encoder
         self.graph_features = graph_features
         self.num_mlp_layers = num_mlp_layers
-        
+        self.dim_pooling = dim_pooling
+                
         if self.num_layer < 1:
             raise ValueError("Number of GNN layers must be at least 1.")
 
@@ -44,6 +45,7 @@ class GNN(torch.nn.Module):
         else:
             self.gnn_node = GNN_node(num_layer, emb_dim, JK = JK, drop_ratio = drop_ratio, residual = residual, gnn_type = gnn_type, node_encoder=node_encoder, edge_encoder=edge_encoder)
 
+        self.graph_emb_dim = emb_dim if (JK != "concat") else (emb_dim*(num_layer+1))
         self.set_mlp(graph_features)
 
         ### Pooling function to generate whole-graph embeddings
@@ -57,10 +59,28 @@ class GNN(torch.nn.Module):
         elif self.graph_pooling == "attention":
             self.pool = GlobalAttention(gate_nn = torch.nn.Sequential(torch.nn.Linear(emb_dim, 2*emb_dim), torch.nn.BatchNorm1d(2*emb_dim), torch.nn.ReLU(), torch.nn.Linear(2*emb_dim, 1)))
 
+        # Dimensional pooling (for CWN)
+        if self.dim_pooling:
+            print("CWN: Using dimensional pooling.")
+            self.lin_per_dim = torch.nn.ModuleList()
+            self.relu = torch.nn.ReLU()
+            for _ in range(3):
+                self.lin_per_dim.append(torch.nn.Linear(self.graph_emb_dim, self.graph_emb_dim))
+        
     def forward(self, batched_data):
         h_node = self.gnn_node(batched_data)
 
-        h_graph = self.pool(h_node, batched_data.batch)
+        if self.dim_pooling:
+            dimensional_pooling = []
+            for dim in range(3):
+                multiplier = torch.unsqueeze(batched_data.node_type[:, dim], dim=1)
+                single_dim = h_node * multiplier
+                single_dim = self.pool(single_dim, batched_data.batch)
+                single_dim = self.relu(self.lin_per_dim[dim](single_dim))
+                dimensional_pooling.append(single_dim)
+            h_graph = sum(dimensional_pooling)
+        else:
+            h_graph = self.pool(h_node, batched_data.batch)
 
         # Attach graph level features
         if self.graph_features > 0:
@@ -85,13 +105,13 @@ class GNN(torch.nn.Module):
 
     def set_mlp(self, graph_features = 0, copy_emb_weights = False):
         self.graph_features = graph_features
-        hidden_size = self.emb_dim // 2
+        hidden_size = self.graph_emb_dim // 2
         new_mlp = ModuleList([])
         new_mlp.requires_grad = False
 
         
         for i in range(self.num_mlp_layers):
-            in_size = hidden_size if i > 0 else self.emb_dim + graph_features
+            in_size = hidden_size if i > 0 else self.graph_emb_dim + graph_features
             out_size = hidden_size if i < self.num_mlp_layers - 1 else self.num_classes*self.num_tasks
 
             new_linear_layer = Linear(in_size, out_size)
