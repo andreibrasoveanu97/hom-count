@@ -24,14 +24,15 @@ def compute_loss_predictions(batch, model, metric, device, loss_fn, tracking_dic
     predictions = model(batch)
     y = batch.y
 
+
     if model.num_tasks == 1:
         y = y.view(batch_size, -1)
     else:
         y = y.view(batch_size, model.num_tasks)
 
     if y.shape[1] == 1 and metric == "accuracy":
-        y = F.one_hot(torch.squeeze(y, 1), 10)
-        
+        y = F.one_hot(torch.squeeze(y, 1), model.num_classes)
+
     is_labeled = y == y
 
     if y.dtype == torch.int64:

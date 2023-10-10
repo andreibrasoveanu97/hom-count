@@ -1,5 +1,5 @@
 import networkx as nx
-from torch_geometric.datasets import ZINC
+from torch_geometric.datasets import ZINC, TUDataset, QM9
 from torch_geometric.transforms import Compose, OneHotDegree
 from torch_geometric import utils
 from ogb.nodeproppred import PygNodePropPredDataset
@@ -8,9 +8,11 @@ import numpy as np
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
 from Misc.drop_features import DropFeatures
+from datasets.PeptidesStructural import PeptidesStructuralDataset
 import argparse
 import json
 import grinpy as gp
+implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109", "qm9"]
 
 def to_sagegraph(graph):
     G = Graph()
@@ -50,13 +52,34 @@ def main():
         dataset = PygGraphPropPredDataset(root="./datasets/", name=args.dataset.lower(), pre_transform=transform)
         split_idx = dataset.get_idx_split()
         datasets = [dataset[split_idx["train"]], dataset[split_idx["valid"]], dataset[split_idx["test"]]]
+    elif args.dataset.lower() in implemented_TU_datasets:
+        dataset = TUDataset(root='./datasets/', name=args.dataset,
+                            use_node_attr=True, use_edge_attr=False)
+        dataset.shuffle()
+        datasets = [dataset[:int(len(dataset) * 0.8)],
+                    dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)],
+                    dataset[int(len(dataset) * 0.9):]]
+    elif args.dataset.lower() == "qm9":
+        dataset = QM9(root='./datasets/')
+        dataset.shuffle()
+        datasets = [dataset[:int(len(dataset) * 0.8)],
+                    dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)],
+                    dataset[int(len(dataset) * 0.9):]]
+    elif args.dataset.lower() == "peptides":
+        dataset = PeptidesStructuralDataset(root="./datasets/")
+        splits = dataset.get_idx_split()
+
+        datasets = [dataset[splits["train"]], dataset[splits["val"]], dataset[splits["test"]]]
     else:
         raise NotImplementedError("Unknown dataset")
 
     counts_dict = {}
 
     # only one feature per counts.json file
-    counts_dict["pattern_sizes"] = [1]
+    if args.feature != "all":
+        counts_dict["pattern_sizes"] = [1]
+    else:
+        counts_dict["pattern_sizes"] = [1, 2, 3, 4, 5, 6, 7, 8]
 
     counts_dict["data"] = []
 
@@ -87,7 +110,39 @@ def main():
                                             "counts": [float(compute_feature(feature=args.feature, graph=g))]})
 
         counts_dict["data"] = sorted(counts_dict["data"], key=lambda x: x["idx"])
+    elif args.dataset.lower() in ["peptides"]:
+        splits_dict = dataset.get_idx_split()
+        idx = 0
+        splits = ["train", "val", "test"]
+        for split, dataset in zip(splits, datasets):
+            for i, graph in enumerate(dataset):
+                g = utils.to_networkx(graph)
 
+                if args.feature != "all":
+                    counts_dict["data"].append({"vertices": graph.num_nodes,
+                                            "edges": graph.num_edges,
+                                            "split": split,
+                                            "idx_in_split": i,
+                                            "idx": int(splits_dict[split][i]),
+                                            "counts": [float(compute_feature(feature=args.feature, graph=g))]})
+                else:
+                    counts_dict["data"].append({"vertices": graph.num_nodes,
+                                                "edges": graph.num_edges,
+                                                "split": split,
+                                                "idx_in_split": i,
+                                                "idx": int(splits_dict[split][i]),
+                                                "counts": [float(wiener_index(g)),
+                                                           float(hosoya_index(g)),
+                                                           float(independence_no(g)),
+                                                           float(eigenvalues_laplacian(g)[1]),
+                                                           float(circuit_rank(g)),
+                                                           float(spectral_radius(g)),
+                                                           float(zagreb_index1(g)),
+                                                           float(zagreb_index2(g))]})
+                idx += 1
+        counts_dict["data"] = sorted(counts_dict["data"], key=lambda x: x["idx"])
+    else:
+        NotImplementedError("Dataset not implemented")
 
     with open('./Counts/GlobalFeatures/{}_{}_global.json'.format(args.dataset.upper(), args.feature.upper()), 'w') as fp:
         json.dump(counts_dict, fp)
@@ -115,7 +170,7 @@ def circuit_rank(graph):
     return (g.number_of_edges() - g.number_of_nodes() + nx.number_connected_components(g))
 
 def spectral_radius(graph):
-    return max(nx.laplacian_spectrum(graph.to_undirected()))
+    return max(map(abs, nx.adjacency_spectrum(graph)))
 
 def diameter(graph):
     return nx.diameter(graph)
@@ -124,7 +179,7 @@ def independence_no(graph):
     return int(gp.independence_number(graph))
 
 def dummy(graph):
-    return np.random.random()
+    return np.float64(1)
 
 def compute_feature(feature, graph):
     match feature:

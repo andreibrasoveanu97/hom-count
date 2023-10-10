@@ -3,22 +3,36 @@ import csv
 
 import torch
 from torch_geometric.loader import DataLoader
-from torch_geometric.datasets import ZINC, GNNBenchmarkDataset, GNNBenchmarkDataset
+from torch_geometric.datasets import ZINC, GNNBenchmarkDataset, TUDataset, QM9
 import torch.optim as optim
-from torch_geometric.utils import to_undirected
 from torch_geometric.transforms import ToUndirected, Compose, OneHotDegree
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
-from ogb.graphproppred.mol_encoder import AtomEncoder
 from ogb.utils.features import get_atom_feature_dims
-
+from Models.gin import GIN
 from Models.gnn import GNN
-# from Models.model import GNN
-from Models.encoder import NodeEncoder, EdgeEncoder, ZincAtomEncoder, EgoEncoder
+from Models.encoder import NodeEncoder, EdgeEncoder
 from Models.mlp import MLP
 from Misc.attach_graph_features import AttachGraphFeat
 from Misc.drop_features import DropFeatures
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
+from datasets.PeptidesStructural import PeptidesStructuralDataset
+from datasets.PeptidesFunctional import PeptidesFunctionalDataset
+from torch_geometric.data import Dataset
+import numpy as np
+
+implemented_TU_datasets = ["mutag", "proteins", "nci1", "nci109"]
+shuffled_datasets = ["mutag", "proteins", "nci1", "nci109", "qm9"]
+class CustomSubset(Dataset):
+    def __init__(self, dataset, indices):
+        self.dataset = dataset
+        self.indices = indices
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        return self.dataset[self.indices[idx]]
 
 def get_transform(args, split = None):
     transforms = []
@@ -32,7 +46,13 @@ def get_transform(args, split = None):
 
     if args.graph_feat != "":
         use_zinc = args.dataset.lower() == "zinc"
-        transforms.append(AttachGraphFeat(args.graph_feat, process_splits_separately = use_zinc, half_nr_edges = use_zinc, misaligned = args.use_misaligned))
+        use_shuffled = args.dataset.lower() in shuffled_datasets
+        transforms.append(AttachGraphFeat(args.graph_feat,
+                                          process_splits_separately = use_zinc,
+                                          half_nr_edges = use_zinc,
+                                          misaligned = args.use_misaligned,
+                                          shuffle=use_shuffled,
+                                          dummy=args.dummy))
         
     if args.do_drop_feat:
         transforms.append(DropFeatures(args.emb_dim))
@@ -71,12 +91,38 @@ def load_dataset(args, config):
         dataset = PlanarSATPairsDataset(name=args.dataset, root=dir, pre_transform=transform)
         split_dict = dataset.separate_data(args.seed, args.split)
         datasets = [split_dict["train"], split_dict["valid"], split_dict["test"]]
+    elif args.dataset.lower() in implemented_TU_datasets:
+        dataset = TUDataset(root=dir, name=args.dataset, pre_transform=transform,
+                                                      use_node_attr=False, use_edge_attr=False)
+        indices_train = lambda: [i for i, data in enumerate(dataset) if data.split == 'train']
+        indices_test = lambda: [i for i, data in enumerate(dataset) if data.split == 'test']
+        indices_valid = lambda: [i for i, data in enumerate(dataset) if data.split == 'valid']
+
+        datasets = [CustomSubset(dataset, indices_train()), CustomSubset(dataset, indices_valid()), CustomSubset(dataset, indices_test())]
+    elif args.dataset.lower() == "qm9":
+        dataset = QM9(root = dir, pre_transform=transform)
+
+        indices_train = lambda: [i for i, data in enumerate(dataset) if data.split == 'train']
+        indices_test = lambda: [i for i, data in enumerate(dataset) if data.split == 'test']
+        indices_valid = lambda: [i for i, data in enumerate(dataset) if data.split == 'valid']
+
+        train_split = standardize_y(CustomSubset(dataset, indices_train()))
+        valid_split = standardize_y(CustomSubset(dataset, indices_valid()))
+        test_split = standardize_y(CustomSubset(dataset, indices_test()))
+
+        datasets = [train_split, valid_split, test_split]
+    elif args.dataset.lower() == "peptides":
+        dataset = PeptidesStructuralDataset(root = dir, pre_transform=transform)
+        splits = dataset.get_idx_split()
+
+        datasets = [dataset[splits["train"]], dataset[splits["val"]], dataset[splits["test"]]]
+    elif args.dataset.lower() == "peptides-functional":
+        dataset = PeptidesFunctionalDataset(root=dir, pre_transform=transform)
+        splits = dataset.get_idx_split()
+
+        datasets = [dataset[splits["train"]], dataset[splits["val"]], dataset[splits["test"]]]
     else:
         raise NotImplementedError("Unknown dataset")
-        
-    
-
-    
 
     train_loader = DataLoader(datasets[0], batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(datasets[1], batch_size=args.batch_size, shuffle=False)
@@ -89,26 +135,44 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
     
     model = args.model.lower()
 
-    if args.dataset.lower() == "zinc"and not args.do_drop_feat:
+    if args.dataset.lower() == "zinc" and not args.do_drop_feat:
         node_feature_dims.append(21)
         node_encoder = NodeEncoder(emb_dim=args.emb_dim, feature_dims=node_feature_dims)
-        edge_encoder =  EdgeEncoder(emb_dim=args.emb_dim, feature_dims=[4])
+        edge_encoder = EdgeEncoder(emb_dim=args.emb_dim, feature_dims=[4])
     elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-molpcba", "ogbg-moltox21", "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv", "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"] and not args.do_drop_feat:
 
         node_feature_dims += get_atom_feature_dims()
         print("node_feature_dims: ", node_feature_dims)
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=node_feature_dims), EdgeEncoder(args.emb_dim)
+    elif args.dataset.lower() == "mutag":
+        for i in range (0, 7):
+            node_feature_dims.append(2)
+        node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=node_feature_dims), EdgeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2])
+    elif args.dataset.lower() == "qm9":
+        node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2, 2, 10, 1, 1, 1, 1, 5]), EdgeEncoder(args.emb_dim, feature_dims=[2, 2, 2, 2])
+    elif args.dataset.lower() in ["peptides", "peptides-functional"]:
+        node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=[17, 3, 7, 7, 5, 1, 6, 2, 2]), EdgeEncoder(args.emb_dim, feature_dims=[4, 1, 2])
+    elif args.dataset.lower() in ["proteins"]:
+        node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=[2, 2, 2]), EdgeEncoder(args.emb_dim, feature_dims=[2])
     else:
         node_encoder, edge_encoder = lambda x: x, lambda x: x
-            
-    if model in ["gin", "gcn", "gat"]:  
+
+    max_struct_size = args.max_struct_size
+    if max_struct_size > 0 and not args.cliques:
+        max_struct_size = 2
+
+    if model in ["gin", "gcn", "gat"]:
         return GNN(num_classes, num_tasks, args.num_layers, args.emb_dim, 
                 gnn_type = model, virtual_node = args.use_virtual_node, drop_ratio = args.drop_out, JK = "last", 
                 graph_pooling = args.pooling, edge_encoder=edge_encoder, node_encoder=node_encoder, 
                 use_node_encoder = args.use_node_encoder, num_mlp_layers = args.num_mlp_layers)
-    elif args.model.lower() == "mlp":
+    elif model == "mlp":
             return MLP(num_features=num_vertex_features, num_layers=args.num_layers, hidden=args.emb_dim, 
                     num_classes=num_classes, num_tasks=num_tasks, dropout_rate=args.drop_out, graph_pooling=args.pooling)
+    elif model == "gin_tu":
+        return GIN(num_features=num_vertex_features, num_layers=args.num_layers, hidden=args.emb_dim, num_classes=num_classes,
+                   dropout_rate=args.drop_out, max_cell_dim=max_struct_size, dimensional_pooling=args.use_explicit_pattern_enc,
+                   readout=args.pooling, num_mlp_layers=args.num_mlp_layers)
     else: # Probably don't need other models
         pass
 
@@ -142,7 +206,7 @@ def get_optimizer_scheduler(model, args, finetune = False):
 
 def get_loss(args):
     metric_method = None
-    if args.dataset.lower() == "zinc":
+    if args.dataset.lower() in ["zinc", "qm9", "peptides"]:
         loss = torch.nn.L1Loss()
         metric = "mae"
     elif args.dataset.lower() in ["ogbg-molesol", "ogbg-molfreesolv", "ogbg-mollipo"]:
@@ -164,6 +228,12 @@ def get_loss(args):
         loss = torch.nn.BCEWithLogitsLoss()
         metric = "ap (ogb)" 
         metric_method = get_evaluator(args.dataset)
+    elif args.dataset.lower() in ["proteins", "mutag"]:
+        loss = torch.nn.BCEWithLogitsLoss()
+        metric = "accuracy"
+    elif args.dataset.lower() in ["peptides-functional"]:
+        loss = torch.nn.BCEWithLogitsLoss()
+        metric = "ap"
     else:
         raise NotImplementedError("No loss for this dataset")
     
@@ -173,3 +243,15 @@ def get_evaluator(dataset):
     evaluator = Evaluator(dataset)
     eval_method = lambda y_true, y_pred: evaluator.eval({"y_true": y_true, "y_pred": y_pred})
     return eval_method
+
+
+def standardize_y(dataset):
+    num_targets = dataset[0].y.shape[1]
+
+    for i in range(num_targets):
+        mean = torch.mean(dataset[:].data.y[:, i])
+        std = torch.std(dataset[:].data.y[:, i])
+
+        dataset[:].data.y[:, i] = (dataset[:].data.y[:, i] - mean) / std
+
+    return dataset

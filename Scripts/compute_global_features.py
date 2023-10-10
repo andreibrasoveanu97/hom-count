@@ -10,7 +10,7 @@ from Misc.pad_node_attr import PadNodeAttr
 from Misc.drop_features import DropFeatures
 import argparse
 import json
-
+import grinpy as gp
 def get_transform(args, split=None):
     transforms = []
     if args.dataset.lower() == "csl":
@@ -93,9 +93,14 @@ def main():
                                             "split": split,
                                             "idx_in_split": i,
                                             "idx": int(split_idx[split][i]),
-                                            "counts": [hosoya_index(g),
-                                                       eigenvalues_laplacian(g)[0],
-                                                       eigenvalues_laplacian(g)[1]]})
+                                            "counts": [float(wiener_index(g)),
+                                                   float(hosoya_index(g)),
+                                                   float(independence_no(g)),
+                                                   float(eigenvalues_laplacian(g)[1]),
+                                                   float(circuit_rank(g)),
+                                                   float(spectral_radius(g)),
+                                                   float(zagreb_index1(g)),
+                                                   float(zagreb_index2(g))]})
 
         counts_dict["data"] = sorted(counts_dict["data"], key=lambda x: x["idx"])
 
@@ -105,7 +110,7 @@ def main():
 
 # sum of the lengths of the shortest paths between all pairs of vertices
 def wiener_index(graph):
-    return nx.wiener_index(graph)
+    return -1 if nx.wiener_index(graph) == float("inf") else nx.wiener_index(graph)
 
 def hosoya_index(graph):
     return len(nx.max_weight_matching(graph.to_undirected(), maxcardinality = True))
@@ -126,8 +131,16 @@ def circuit_rank(graph):
     return (g.number_of_edges() - g.number_of_nodes() + nx.number_connected_components(g))
 
 def spectral_radius(graph):
-    return max(nx.adjacency_spectrum(graph))
+    return max(nx.laplacian_spectrum(graph.to_undirected()))
 
+def diameter(graph):
+    return nx.diameter(graph)
+
+def independence_no(graph):
+    return int(gp.independence_number(graph))
+
+def dummy(graph):
+    return float(1)
 
 if __name__ == "__main__":
     main()

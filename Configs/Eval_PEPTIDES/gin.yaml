@@ -1,0 +1,19 @@
+model:  ["GIN"]
+batch_size: [128]
+emb_dim: [256]
+drop_out: [0]
+num_layers: [2]
+num_mlp_layers: [2]
+pooling: ["sum"]
+lr: [0.001]
+freeze_gnn: [0]
+epochs: [500]
+lr_schedule_patience: [20]
+lr_scheduler: ["ReduceLROnPlateau"]
+lr_scheduler_decay_rate: [0.5]
+drop_feat: [0]
+min_lr: [1e-5]
+
+
+
+

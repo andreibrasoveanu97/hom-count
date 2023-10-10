@@ -115,5 +115,7 @@ class GNN(torch.nn.Module):
         new_mlp.requires_grad = True
         self.mlp = new_mlp
 
+
+
 if __name__ == '__main__':
     GNN(num_tasks = 10)
