@@ -6,7 +6,7 @@ from ogb.graphproppred import PygGraphPropPredDataset
 import numpy as np
 from Misc.add_zero_edge_attr import AddZeroEdgeAttr
 from Misc.pad_node_attr import PadNodeAttr
-from PeptidesStructural import PeptidesStructuralDataset
+# from PeptidesStructural import PeptidesStructuralDataset
 import argparse
 import json
 import grinpy as gp
