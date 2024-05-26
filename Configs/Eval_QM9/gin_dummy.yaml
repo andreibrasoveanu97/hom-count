@@ -12,7 +12,7 @@ lr_schedule_patience: [5]
 lr_scheduler: ["ReduceLROnPlateau"]
 lr_scheduler_decay_rate: [0.5]
 drop_feat: [0]
-min_lr: [2e-5]
+min_lr: [1e-5]
 dummy: [True]
 
 

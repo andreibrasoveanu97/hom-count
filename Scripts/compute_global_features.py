@@ -54,7 +54,7 @@ def main():
     elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-ppa", "ogbg-code2", "ogbg-molpcba", "ogbg-moltox21",
                                   "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv",
                                   "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"]:
-        counts_dict["pattern_sizes"] = [2, 3, 4]
+        counts_dict["pattern_sizes"] = [1, 2, 3, 4, 5, 6, 7, 8]
 
 
     counts_dict["data"] = []

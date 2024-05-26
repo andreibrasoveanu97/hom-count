@@ -145,6 +145,7 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
 
     if args.dataset.lower() == "zinc" and not args.do_drop_feat:
         node_feature_dims.append(21)
+        node_feature_dims.append(1001)
         node_encoder = NodeEncoder(emb_dim=args.emb_dim, feature_dims=node_feature_dims)
         edge_encoder = EdgeEncoder(emb_dim=args.emb_dim, feature_dims=[4])
     elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-molpcba", "ogbg-moltox21", "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv", "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"] and not args.do_drop_feat:
@@ -164,15 +165,16 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
     else:
         node_encoder, edge_encoder = lambda x: x, lambda x: x
 
+
+
     max_struct_size = args.max_struct_size
     if max_struct_size > 0 and not args.cliques:
         max_struct_size = 2
-
     if model in ["gin", "gcn", "gat"]:
         return GNN(num_classes, num_tasks, args.num_layers, args.emb_dim, 
                 gnn_type = model, virtual_node = args.use_virtual_node, drop_ratio = args.drop_out, JK = args.JK, 
                 graph_pooling = args.pooling, edge_encoder=edge_encoder, node_encoder=node_encoder, 
-                use_node_encoder = args.use_node_encoder, num_mlp_layers = args.num_mlp_layers, dim_pooling = args.graph_trafo == "CWN")
+                use_node_encoder = args.use_node_encoder, num_mlp_layers = args.num_mlp_layers, dim_pooling = args.graph_trafo == "CWN", node_broadcast=args.node_broadcast)
     elif model == "mlp":
             return MLP(num_features=num_vertex_features, num_layers=args.num_layers, hidden=args.emb_dim, 
                     num_classes=num_classes, num_tasks=num_tasks, dropout_rate=args.drop_out, graph_pooling=args.pooling)

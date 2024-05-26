@@ -139,7 +139,7 @@ class GNN_node(torch.nn.Module):
 
     def forward(self, batched_data):
         x, edge_index, edge_attr, batch = batched_data.x, batched_data.edge_index, batched_data.edge_attr, batched_data.batch
-         
+
         if self.gnn_type == "gat":
             edge_attr = self.edge_encoder(edge_attr)
         ### computing input node embedding
@@ -149,7 +149,7 @@ class GNN_node(torch.nn.Module):
             x = x.long()
         edge_attr = edge_attr.long()
 
-        h_list = [self.node_encoder(x)]     
+        h_list = [self.node_encoder(x)]
         for layer in range(self.num_layer):
 
             h = self.convs[layer](h_list[layer], edge_index, edge_attr)

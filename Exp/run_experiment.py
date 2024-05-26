@@ -19,7 +19,7 @@ from Misc.config import RESULTS_PATH
 keys_to_avg = ["runtime_hours", "parameters", "val", "test", "val0", "test0", "graph_feat"]
 
 def get_directory(args):
-    return os.path.join(RESULTS_PATH, f"{args.dataset}_{os.path.split(args.grid_file)[-1]}" + (f"_{os.path.split(args.graph_feat)[-1]}" if args.graph_feat != "" else "")) 
+        return os.path.join(RESULTS_PATH, f"{args.dataset}_{os.path.split(args.grid_file)[-1]}" + (f"_{os.path.split(args.graph_feat)[-1]}" if args.graph_feat != "" else ""))
 
 def get_paths(args, split):
     directory = get_directory(args)
@@ -70,6 +70,8 @@ def main(passed_args = None):
                     help='Number of folds, setting this to something other than 1, means we will treat this as cross validation')
     parser.add_argument('--graph_feat', type=str, default="",
                         help="Path to a file that contains the graph features.")
+    # parser.add_argument('--node_broadcast', dest="node_broadcast", type=bool, default=False,
+    #                     help="Predicate to choose whether the global features should be broadcasted as node features or not")
     parser.add_argument('--params_exp_name', dest='params_exp', type=str,
                     help="Set to the name of an experiment whose hyperparameter search you want to use (ignores their graph feat file)", default = "")
 
@@ -155,7 +157,8 @@ def main(passed_args = None):
                         }
             if args.graph_feat != "":
                 param_dict["--graph_feat"] = args.graph_feat
-            
+
+
             for key, value in param[0].items():
                 param_dict["--" + str(key)] = str(value)
                 

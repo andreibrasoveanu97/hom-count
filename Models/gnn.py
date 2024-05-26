@@ -13,7 +13,8 @@ class GNN(torch.nn.Module):
 
     def __init__(self, num_classes, num_tasks, num_layer = 5, emb_dim = 300, 
                     gnn_type = 'gin', virtual_node = True, residual = False, drop_ratio = 0.5, JK = "last", graph_pooling = "mean",
-                    node_encoder = lambda x: x, edge_encoder = lambda x: x, use_node_encoder = True, graph_features = 0, num_mlp_layers = 1, dim_pooling = False):
+                    node_encoder = lambda x: x, edge_encoder = lambda x: x, use_node_encoder = True, graph_features = 0, num_mlp_layers = 1, dim_pooling = False,
+                 node_broadcast = False):
         '''
             num_tasks (int): number of labels to be predicted
             virtual_node (bool): whether to add virtual node or not
@@ -35,7 +36,8 @@ class GNN(torch.nn.Module):
         self.graph_features = graph_features
         self.num_mlp_layers = num_mlp_layers
         self.dim_pooling = dim_pooling
-                
+        self.node_broadcast = node_broadcast
+
         if self.num_layer < 1:
             raise ValueError("Number of GNN layers must be at least 1.")
 
@@ -68,6 +70,47 @@ class GNN(torch.nn.Module):
                 self.lin_per_dim.append(torch.nn.Linear(self.graph_emb_dim, self.graph_emb_dim))
         
     def forward(self, batched_data):
+        # Concatenate global features with node features
+        if self.node_broadcast:
+            if self.graph_features > 0:
+                global_features = self.standardize_features(batched_data.graph_features[:, :self.graph_features])
+                # Repeat the global features for each node in the batch
+                global_features_repeated = global_features[batched_data.batch]
+
+                batched_data.x = torch.cat([batched_data.x, global_features_repeated], dim=1)
+        else:
+            h_node = self.gnn_node(batched_data)
+
+            if self.dim_pooling:
+                dimensional_pooling = []
+                for dim in range(3):
+                    multiplier = torch.unsqueeze(batched_data.node_type[:, dim], dim=1)
+                    single_dim = h_node * multiplier
+                    single_dim = self.pool(single_dim, batched_data.batch)
+                    single_dim = self.relu(self.lin_per_dim[dim](single_dim))
+                    dimensional_pooling.append(single_dim)
+                h_graph = sum(dimensional_pooling)
+            else:
+                h_graph = self.pool(h_node, batched_data.batch)
+
+            # Attach graph level features
+            # if self.graph_features > 0:
+            #     h_graph = torch.cat([h_graph,  batched_data.graph_features[:, 0:self.graph_features]], dim=1)
+
+            if self.graph_features > 0 and (not self.node_broadcast):
+                h_graph = torch.cat([h_graph,  self.standardize_features(batched_data.graph_features[:, 0:self.graph_features])], dim=1)
+
+            h_graph = h_graph
+            for i, layer in enumerate(self.mlp):
+                h_graph = layer(h_graph)
+                if i < self.num_mlp_layers - 1:
+                    h_graph = F.dropout(h_graph, self.drop_ratio, training = self.training)
+
+            if self.num_tasks == 1:
+                h_graph = h_graph.view(-1, self.num_classes)
+            else:
+                h_graph.view(-1, self.num_tasks, self.num_classes)
+            return h_graph
         h_node = self.gnn_node(batched_data)
 
         if self.dim_pooling:
@@ -82,15 +125,11 @@ class GNN(torch.nn.Module):
         else:
             h_graph = self.pool(h_node, batched_data.batch)
 
-        # Attach graph level features
-        if self.graph_features > 0:
-            h_graph = torch.cat([h_graph,  batched_data.graph_features[:, 0:self.graph_features]], dim=1)
-
         h_graph = h_graph
         for i, layer in enumerate(self.mlp):
             h_graph = layer(h_graph)
             if i < self.num_mlp_layers - 1:
-                h_graph = F.dropout(h_graph, self.drop_ratio, training = self.training)
+                h_graph = F.dropout(h_graph, self.drop_ratio, training=self.training)
 
         if self.num_tasks == 1:
             h_graph = h_graph.view(-1, self.num_classes)
@@ -111,7 +150,10 @@ class GNN(torch.nn.Module):
 
         
         for i in range(self.num_mlp_layers):
-            in_size = hidden_size if i > 0 else self.graph_emb_dim + graph_features
+            if (self.node_broadcast):
+                in_size = hidden_size if i > 0 else self.graph_emb_dim
+            else:
+                in_size = hidden_size if i > 0 else self.graph_emb_dim + graph_features
             out_size = hidden_size if i < self.num_mlp_layers - 1 else self.num_classes*self.num_tasks
 
             new_linear_layer = Linear(in_size, out_size)
@@ -135,7 +177,20 @@ class GNN(torch.nn.Module):
         new_mlp.requires_grad = True
         self.mlp = new_mlp
 
+    def standardize_features(self, features, max_value=1000):
+        min_val = features.min(dim=0, keepdim=True)[0]
+        max_val = features.max(dim=0, keepdim=True)[0]
 
+        # Scale to [0, 1]
+        standardized_features = (features - min_val) / (max_val - min_val)
+
+        # Scale to [0, max_value]
+        standardized_features = standardized_features * max_value
+
+        # Convert to integers
+        standardized_features = standardized_features.round().long()
+
+        return standardized_features
 
 if __name__ == '__main__':
     GNN(num_tasks = 10)

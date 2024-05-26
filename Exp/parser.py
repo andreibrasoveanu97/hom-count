@@ -99,6 +99,10 @@ def parse_args(passed_args=None):
 
     parser.add_argument('--graph_feat', type=str, default="",
                         help="Path to a file that contains the graph features.")
+
+    parser.add_argument('--node_broadcast', type=int, default=0,
+                        help="Predicate to choose whether the global features should be broadcasted as node features or not")
+
     parser.add_argument('--freeze_gnn', type=int, default=0,
                         help="Freeze GNN layers after training it.")
     # parser.add_argument('--nr_graph_feat', type=int, default=0,
@@ -149,6 +153,8 @@ def parse_args(passed_args=None):
     args.__dict__["use_aggr_vertex_feat"] = args.aggr_vertex_feat == 1
     args.__dict__["use_explicit_pattern_enc"] = args.explicit_pattern_enc == 1
     args.__dict__["use_edge_attr_in_vertices"] = args.edge_attr_in_vertices == 1
+
+    args.__dict__["node_broadcast"] = args.node_broadcast == 1
 
     # https://codereview.stackexchange.com/a/79015
     # If a config file is provided, write it's values into the arguments
