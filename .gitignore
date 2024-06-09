@@ -4,7 +4,8 @@ wandb/
 Results/
 datasets/
 ResultsOld/
-Counts/GlobalFeatures
+!Counts/GlobalFeatures/
+Counts/GlobalFeatures/*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
