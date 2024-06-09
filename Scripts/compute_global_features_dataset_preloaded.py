@@ -117,6 +117,210 @@ def diameter(graph):
 def independence_no(graph):
     return int(gp.independence_number(graph))
 
+
+def homo_lumo_index(g):
+    if not nx.is_connected(g.to_undirected()):
+        return False
+
+    n = g.number_of_nodes()
+
+    spectrum = nx.adjacency_spectrum(g.to_undirected())
+
+    if n % 2 == 0:
+        h = int(n / 2 - 1)  # because array indices start from 0 instead of 1
+        l = int(h + 1)
+        return max([abs(spectrum[h]), abs(spectrum[l])])
+
+    h = int((n - 1) / 2)
+    return abs(spectrum[h])
+
+def eccentricity(graph):
+    """ Eccentricity of the graph for all its vertices"""
+    return nx.floyd_warshall_numpy(graph).max(axis=0).tolist()
+
+def eccentric_connectivity_index(graph):
+    """ Eccentric Connectivity Index
+    Graph must be connected, otherwise it cannot be computed"""
+    degrees = [val for (node, val) in graph.degree()]
+    return sum( map( lambda a,b: a*b, degrees, eccentricity(graph) ) )
+
+def connectivity_index(graph, power):
+    """Connectivity index (R)"""
+    E = list(graph.edges())
+    degrees = [val for (node, val) in graph.degree()]
+
+    return np.float64(sum(map(lambda x: (degrees[x[0]] * degrees[x[1]]) ** power, E)))
+
+def randic_index(graph):
+    """Randic Index"""
+    return connectivity_index(graph, -0.5)
+
+def atom_bond_connectivity_index(graph):
+    """ Atom-Bond Connectivity Index (ABC) """
+    s = np.longdouble(0)  # summator
+    E = list(graph.edges())
+    degrees = [val for (node, val) in graph.degree()]
+
+    for (u, v) in E:
+        d1 = np.float64(degrees[u])
+        d2 = np.float64(degrees[v])
+        s += np.longdouble(((d1 + d2 - 2) / (d1 * d2)) ** .5)
+    return np.float64(s)
+
+def spectrum_matrix(graph, type = "adjacency"):
+    match type:
+        case "adjacency":
+            return nx.adjacency_spectrum(graph.to_undirected())
+        case "laplacian":
+            return nx.laplacian_spectrum(graph.to_undirected())
+        case "distance":
+            dist_matrix = nx.floyd_warshall_numpy(graph)
+            s = np.linalg.eigvalsh(dist_matrix).tolist()
+            return s
+
+def estrada_index(graph):
+    """Estrada Index (EE)"""
+    spectrum = nx.adjacency_spectrum(graph.to_undirected())
+
+    return sum(map(lambda x: np.exp(x.real), spectrum))
+
+def distance_estrada_index(graph):
+    """Distance Estrada Index (DEE)"""
+    spectrum = spectrum_matrix(graph, "distance")
+
+    return sum(map(lambda x: np.exp(x.real), spectrum))
+
+def degree_distance(graph):
+    """Degree Distance (DD)"""
+    all_pairs_shortest_paths = dict(nx.all_pairs_shortest_path_length(graph))
+    degrees = [val for (node, val) in graph.degree()]
+
+    degree_distance = 0
+    for u in graph.nodes():
+        for v in graph.nodes():
+            if u != v:
+                distance_uv = all_pairs_shortest_paths[u][v]
+                degree_distance += (degrees[u] + degrees[v]) * distance_uv
+
+    return degree_distance
+
+
+def molecular_topological_index_mti(graph):
+    A = nx.adjacency_matrix(graph).toarray()
+
+    D = dict(nx.all_pairs_shortest_path_length(graph))
+    D_matrix = np.zeros((len(graph), len(graph)))
+    for i, d in D.items():
+        for j, dist in d.items():
+            D_matrix[i][j] = dist
+
+    degrees = [graph.degree(i) for i in range(len(graph))]
+
+    d = np.array(degrees)
+    E = (A + D_matrix) @ d
+    mti = np.sum(E)
+
+    return mti
+
+def eccentric_distance_sum_index(graph):
+    return (eccentricity(graph)*nx.floyd_warshall_numpy(graph).sum(axis = 1)).sum()
+
+
+def balaban_j_index(graph):
+    n = len(graph.nodes())
+    m = len(graph.edges())
+
+    # Compute the number of connected components (c) and the circuit rank (gamma)
+    c = nx.number_connected_components(graph.to_undirected())
+    gamma = m - n + c
+    # Compute the graph distance matrix
+    D = nx.floyd_warshall_numpy(graph).sum(axis=1)
+
+    sum_distances = 0.0
+
+    for (i, j) in graph.to_undirected().edges():
+        sum_distances += 1.0 / np.sqrt(D[i] * D[j])
+
+    # Compute the Balaban index J
+    J = (m / (gamma + 1.0)) * sum_distances
+    return J
+
+def balaban_j_index_cyclomatic(graph):
+    n = len(graph.nodes())
+    m = len(graph.edges())
+
+    # Compute the number of connected components (c) and the circuit rank (gamma)
+    c = nx.number_connected_components(graph.to_undirected())
+    gamma = 1.0
+    # Compute the graph distance matrix
+    D = nx.floyd_warshall_numpy(graph).sum(axis=1)
+
+    sum_distances = 0.0
+
+    for (i, j) in graph.to_undirected().edges():
+        sum_distances += 1.0 / np.sqrt(D[i] * D[j])
+
+    # Compute the Balaban index J
+    J = (m / (gamma + 1.0)) * sum_distances
+    return J
+
+def resistance_matrix(graph):
+    n = graph.number_of_nodes()
+    L = nx.laplacian_matrix(graph.to_undirected()).toarray()
+    Gamma = np.linalg.inv(L + (np.identity(n) / n))
+
+    Omega = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            Omega[i, j] = Gamma[i, i] + Gamma[j, j] - 2 * Gamma[i, j]
+    return Omega
+
+def kirchoff_index(graph):
+    resis_mat = resistance_matrix(graph)
+    return resis_mat.sum() / 2.0
+
+def terminal_wiener_index(graph):
+    s = 0
+    n = graph.number_of_nodes()
+    distances = nx.floyd_warshall_numpy(graph)
+    degrees = [graph.degree(i)/2 for i in range(n)]
+
+    for u in range(n):
+        if degrees[u] != 1: continue
+        for v in range(u+1, n):
+            if degrees[v] == 1:
+                s += distances[u, v]
+
+    return s
+
+def reverse_wiener_index(graph):
+    wi = wiener_index(graph)
+    diam = diameter(graph)
+    n = graph.number_of_nodes()
+
+    return diam * n * (n-1) / 2 - wi
+
+def hyper_wiener_index(graph):
+    distances = nx.floyd_warshall_numpy(graph)
+    return (np.power(distances, 2).sum() + distances.sum())/4.0
+
+def reciprocal_distance_matrix(graph):
+    distances = nx.floyd_warshall_numpy(graph)
+
+    reciprocal_mat = np.zeros_like(distances, dtype = float)
+
+    for i in range(len(distances)):
+        for j in range(len(distances[i])):
+            if distances[i][j] != 0:
+                reciprocal_mat[i][j] = 1 / distances[i][j]
+
+    return reciprocal_mat
+
+def harary_index(graph):
+    reciprocal_mat = reciprocal_distance_matrix(graph)
+
+    return reciprocal_mat.sum() / 2.0
+
 def dummy(graph):
     return np.float64(1)
 
@@ -144,5 +348,37 @@ def compute_feature(feature, graph):
             return dummy(graph)
         case "zagreb_m22":
             return zagreb_index2(graph)
+        case "homo_lumo":
+            return homo_lumo_index(graph)
+        case "eccentric":
+            return eccentric_connectivity_index(graph)
+        case "randic":
+            return randic_index(graph)
+        case "abc":
+            return atom_bond_connectivity_index(graph)
+        case "estrada":
+            return estrada_index(graph)
+        case "estrada_distance":
+            return distance_estrada_index(graph)
+        case "dd":
+            return degree_distance(graph)
+        case "mti":
+            return molecular_topological_index_mti(graph)
+        case "eccentric_distance_sum":
+            return eccentric_distance_sum_index(graph)
+        case "balaban_j":
+            return balaban_j_index(graph)
+        case "balaban_cyclomatic":
+            return balaban_j_index_cyclomatic(graph)
+        case "kirchoff":
+            return kirchoff_index(graph)
+        case "wiener_terminal":
+            return terminal_wiener_index(graph)
+        case "wiener_reverse":
+            return reverse_wiener_index(graph)
+        case "wiener_hyper":
+            return hyper_wiener_index(graph)
+        case "harary":
+            return harary_index(graph)
 if __name__ == "__main__":
     main()
