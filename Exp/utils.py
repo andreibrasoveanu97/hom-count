@@ -151,6 +151,7 @@ def get_model(args, num_classes, num_vertex_features, num_tasks):
     elif args.dataset.lower() in ["ogbg-molhiv", "ogbg-molpcba", "ogbg-moltox21", "ogbg-molesol", "ogbg-molbace", "ogbg-molbbbp", "ogbg-molclintox", "ogbg-molmuv", "ogbg-molsider", "ogbg-moltoxcast", "ogbg-molfreesolv", "ogbg-mollipo"] and not args.do_drop_feat:
         node_feature_dims += get_atom_feature_dims()
         print("node_feature_dims: ", node_feature_dims)
+        node_feature_dims.append(1001)
         node_encoder, edge_encoder = NodeEncoder(args.emb_dim, feature_dims=node_feature_dims), EdgeEncoder(args.emb_dim)
     elif args.dataset.lower() == "mutag":
         for i in range (0, 7):

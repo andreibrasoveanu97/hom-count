@@ -9,21 +9,6 @@ import random
 import torch
 
 
-def normalize_and_round(tensor, new_min=0, new_max=100):
-    """
-    Normalize the tensor to the range [new_min, new_max] and round to integers.
-    """
-    # Normalize the tensor to the range [0, 1]
-    min_val = torch.min(tensor)
-    max_val = torch.max(tensor)
-    normalized = (tensor - min_val) / (max_val - min_val)
-
-    # Scale to the new range and round to integers
-    scaled = normalized * (new_max - new_min) + new_min
-    integer_scaled = torch.round(scaled).int()
-
-    return integer_scaled
-
 class AttachGraphFeat(BaseTransform):
     r""" 
     """
