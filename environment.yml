@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - miniconda
   - pytorch
+  - pyg
   - defaults
 dependencies:
   - _libgcc_mutex=0.1
