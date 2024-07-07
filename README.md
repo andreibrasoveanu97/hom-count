@@ -2,9 +2,9 @@
 
 1. Clone repository
 ```
-git clone https://github.com/andreibrasoveanu97/hom-count/
+git clone https://github.com/andreibrasoveanu97/gnn-global-features/
 git checkout inter_project
-cd hom-count
+cd gnn-global-features
 ```
 
 2. Create and activate conda environment (this assume miniconda is installed)
