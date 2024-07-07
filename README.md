@@ -1,6 +1,3 @@
-# GlobalFeaturesGNNs
-Within this repository, you will find the code belonging to the GNN section of the submission titled **[Extending Graph Neural Networks with Global Features](https://openreview.net/forum?id=aisVQy6R2k)** (LOG, 2023).
-
 ## Setup
 
 1. Clone repository

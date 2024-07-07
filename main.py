@@ -7,7 +7,7 @@ from torch_geometric.data import Data
 from torch_geometric import utils
 from torch_geometric.datasets import ZINC
 from rdkit import Chem
-from rdkit.Chem import Draw
+from rdkit.Chem import Draw, Descriptors
 import numpy as np
 
 args = {'config_file':None, 'tracking':1, 'seed':0, 'split':0, 'dataset':'ZINC', 'lr':0.001, 'lr2':0.0001,
@@ -144,34 +144,55 @@ def predict_logp(data_pt):
     return np.round(float(pred), 2)
 
 
+# Function to display molecule image
 def display_molecule(smiles):
     mol = Chem.MolFromSmiles(smiles)
     return Draw.MolToImage(mol)
 
+# Function to get molecule properties
+def get_molecule_properties(mol):
+    props = {
+        "Molecular Weight": Descriptors.MolWt(mol),
+        "Number of Atoms": mol.GetNumAtoms(),
+        "Number of Bonds": mol.GetNumBonds(),
+        "Number of Rings": Descriptors.RingCount(mol)
+    }
+    return props
 
-st.title("Predict Constrained Solubility of a Molecule (logP)")
+# Streamlit app
+st.title("Molecule LogP Predictor")
+
+st.write("""
+### Introduction
+This application predicts the logP value of a molecule based on its SMILES string.
+""")
 
 transform = CellularRingEncoding(args['max_struct_size'], aggr_edge_atr=True, aggr_vertex_feat=True,
-                                               explicit_pattern_enc=True, edge_attr_in_vertices=False)
+                                 explicit_pattern_enc=True, edge_attr_in_vertices=False)
 
+# User input
 smiles_input = st.text_input("Enter SMILES string:")
 if st.button("Predict"):
     if smiles_input:
         try:
             mol = Chem.MolFromSmiles(smiles_input)
             if mol:
-
                 data_pt = build_data_from_smiles(smiles_input)
-                # apply the cellular ring encoding format expected by the model
                 transform(data_pt)
-                # Predict logP
                 logp = predict_logp(data_pt)
 
                 # Display molecule structure
-                st.image(Draw.MolToImage(mol), caption="Molecule Structure")
+                st.image(display_molecule(smiles_input), caption="Molecule Structure")
+
+                # Display molecule properties
+                props = get_molecule_properties(mol)
+                st.write("### Molecule Properties")
+                for prop, value in props.items():
+                    st.write(f"**{prop}:** {value}")
 
                 # Display logP prediction
-                st.write(f"Predicted logP: {logp}")
+                st.write(f"### Predicted logP: {logp}")
+
             else:
                 st.error("Invalid SMILES string")
         except Exception as e:
