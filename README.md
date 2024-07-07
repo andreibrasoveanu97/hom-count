@@ -3,13 +3,14 @@
 1. Clone repository
 ```
 git clone https://github.com/andreibrasoveanu97/hom-count/
+git checkout inter_project
 cd hom-count
 ```
 
 2. Create and activate conda environment (this assume miniconda is installed)
 ```
-conda create --name HOM
-conda activate HOM
+conda create --name inter_project
+conda activate inter_project
 ```
 
 3. Add this directory to the python path. Let `$PATH` be the path to where this repository is stored (i.e. the result of running `pwd`).
@@ -30,16 +31,16 @@ pip install -r requirements.txt
 ```
 
 ## Recreating experiments
-Run experimentes with the following scripts. Results will be in the Results directory.
+Run experiments with the following scripts. Results will be in the Results directory.
 
 **Main experiments.** Global features against no feature attached:
 ```
 bash Scripts/GlobalFeatures_Individual/ZINC.sh
-bash Scripts/GlobalFeatures_Individual/ogbg-molhiv.sh
 ```
 
-**Ablation.** Impact of random noise in global features:
+## Main app
+**LogP predictor app** In order to run the logP inference model web app, run the following commands:
+
 ```
-python Exp/run_experiment.py -grid "Configs/Eval_ZINC/gin_with_features_individual.yaml" -dataset "ZINC" --candidates 1  --repeats 10 --graph_feat "Counts/GlobalFeatures/ZINC_DUMMY_global.json"
-python Exp/run_experiment.py -grid "Configs/Eval/gin_with_features_individual.yaml" -dataset "ogbg-molhiv" --candidates 1  --repeats 10 --graph_feat "Counts/GlobalFeatures/OGBG-MOLHIV_DUMMY_global.json"
+streamlit run main.py
 ```
